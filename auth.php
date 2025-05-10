@@ -1,10 +1,10 @@
 <?php
 session_start();
 
-$host = 'localhost';
-$db   = 'aurora_dsk';
-$user = 'postgres';
-$pass = 'your_password'; // Replace with your PostgreSQL password
+$host = '77.222.61.245';
+$db   = 'dkaurorads';
+$user = 'dkaurorads';
+$pass = '5djStu6Bh'; // Replace with your PostgreSQL password
 $port = '5432';
 $charset = 'utf8mb4';
 
