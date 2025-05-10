@@ -489,11 +489,13 @@
                     <div id="balconiesContainer" style="display: none;">
                         <h3>Балконы</h3>
                         <div class="balcony-item item-container">
-                            <div class="form-group">
-                                <label>Балкон #1</label>
-                                <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
+                            <div class="balcony-item item-container">
+                                <div class="form-group">
+                                    <label>Балкон #1</label>
+                                    <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
+                                </div>
+                                <button type="button" class="remove-button remove-balcony" style="display: none;">Удалить</button>
                             </div>
-                            <button type="button" class="remove-button remove-balcony" style="display: none;">Удалить</button>
                         </div>
                     </div>
                     <button type="button" id="addBalcony" style="display: none;">Добавить балкон</button>
@@ -814,6 +816,7 @@
             };
             xhr.onload = function() {
                 submitBtn.disabled = false;
+                console.log('Raw response:', xhr.responseText);
                 try {
                     const response = JSON.parse(xhr.responseText);
                     if (response.success) {
@@ -859,16 +862,16 @@
             );
 
             // Логирование выбора rdZipFile
-			document.getElementById('rdZipFile').addEventListener('change', function() {
-				if (this.files[0]) {
-					const file = this.files[0];
-					const validTypes = ['application/zip', 'application/x-rar-compressed'];
-					if (!validTypes.includes(file.type) || file.size > 120 * 1024 * 1024) {
-						alert('Недопустимый файл. Допустимые форматы: .zip, .rar. Максимальный размер: 120 МБ.');
-						this.value = '';
-					}
-				}
-			});
+            document.getElementById('rdZipFile').addEventListener('change', function() {
+                if (this.files[0]) {
+                    const file = this.files[0];
+                    const validTypes = ['application/zip', 'application/x-rar-compressed'];
+                    if (!validTypes.includes(file.type) || file.size > 120 * 1024 * 1024) {
+                        alert('Недопустимый файл. Допустимые форматы: .zip, .rar. Максимальный размер: 120 МБ.');
+                        this.value = '';
+                    }
+                }
+            });
 
             // Dynamic field management
             let bedroomCount = 1;
@@ -982,16 +985,22 @@
             const urlParams = new URLSearchParams(window.location.search);
             const projectId = urlParams.get('id');
             if (projectId) {
+                console.log('Loading project data for ID:', projectId);
                 document.getElementById('projectId').value = projectId;
                 document.getElementById('formTitle').textContent = 'Редактирование проекта';
-                console.log('Fetching project data for ID:', projectId);
-                fetch(`project_api.php?action=get&id=${projectId}`)
+                fetch(`project_api.php?action=get&id=${projectId}`, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                })
                     .then(response => {
                         console.log('Response status:', response.status);
                         console.log('Response headers:', [...response.headers.entries()]);
                         if (!response.ok) {
                             return response.text().then(text => {
-                                throw new Error(`HTTP ошибка: ${response.status}, Response: ${text}`);
+                                throw new Error(`HTTP error: ${response.status}, Response: ${text}`);
                             });
                         }
                         return response.text().then(text => {
@@ -999,7 +1008,7 @@
                             try {
                                 return JSON.parse(text);
                             } catch (e) {
-                                throw new Error(`Ошибка парсинга JSON: ${e.message}, Raw response: ${text}`);
+                                throw new Error(`JSON parse error: ${e.message}, Raw response: ${text}`);
                             }
                         });
                     })
@@ -1010,17 +1019,24 @@
                             errorMessage.textContent = `Ошибка загрузки данных: ${data.message}`;
                             return;
                         }
-                        if (!data.project) {
+                        if (!data.data || !data.data.project) {
                             errorMessage.textContent = 'Проект не найден';
                             return;
                         }
 
                         // Заполнение полей формы
-                        const project = data.project;
-                        const params = data.params;
+                        const project = data.data.project || {};
+                        const params = data.data.params || {};
+                        const sections = data.data.sections || [];
+                        const images = data.data.images || [];
+                        const files = data.data.files || [];
+                        const bedrooms = data.data.bedrooms || [];
+                        const bathrooms = data.data.bathrooms || [];
+                        const balconies = data.data.balconies || [];
+
                         document.getElementById('projectName').value = project.name || '';
                         document.getElementById('projectDescription').value = project.description || '';
-                        document.querySelector(`input[name="floors"][value="${project.floors}"]`).checked = true;
+                        document.querySelector(`input[name="floors"][value="${project.floors || '1'}"]`).checked = true;
                         document.getElementById('totalArea').value = params.total_area || '';
                         document.querySelector(`input[name="has_project"][value="${project.has_project || 'Y'}"]`).checked = true;
                         document.getElementById('model3DView').value = project.model_3d_view || '';
@@ -1028,21 +1044,23 @@
                         document.getElementById('projectNotes').value = project.notes || '';
 
                         // Разделы проекта
-                        data.sections.forEach(section => {
+                        sections.forEach(section => {
                             const checkbox = document.querySelector(`input[name="project_sections[]"][value="${section}"]`);
                             if (checkbox) checkbox.checked = true;
                         });
 
-                        // Отображение существующих изображений
+                        // Отображение существующих файлов
                         if (project.main_pic) {
                             displayExistingImage(project.main_pic, document.getElementById('mainImagePreview'), true);
                         }
-                        data.images.forEach(image => {
+                        images.forEach(image => {
                             displayExistingImage(image.image_path, document.getElementById('additionalImagesPreview'), true);
                         });
-                        data.files.forEach(file => {
+                        files.forEach(file => {
                             displayExistingImage(file.file_path, document.getElementById('projectFilesPreview'), false);
                         });
+                        displayExistingImage(project.model_3d_skp, document.getElementById('mainImagePreview'), false);
+                        displayExistingImage(project.rd_zip_path, document.getElementById('mainImagePreview'), false);
 
                         // Параметры проекта
                         document.getElementById('sizes').value = params.sizes || '';
@@ -1067,25 +1085,26 @@
                         const bedroomsContainer = document.getElementById('bedroomsContainer');
                         bedroomsContainer.innerHTML = '';
                         let bedroomCount = 0;
-                        data.bedrooms.forEach((bedroom, index) => {
-                            bedroomCount++;
-                            const item = document.createElement('div');
-                            item.className = 'bedroom-item item-container';
-                            item.innerHTML = `
-                                <div class="form-group">
-                                    <label>Спальня #${index + 1}</label>
-                                    <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" value="${bedroom.bedroom_size || ''}" placeholder="Площадь, м²">
-                                </div>
-                                <button type="button" class="remove-button remove-bedroom" style="${bedroomCount > 1 ? '' : 'display: none;'}">Удалить</button>
-                            `;
-                            bedroomsContainer.appendChild(item);
-                            item.querySelector('.remove-bedroom').addEventListener('click', function() {
-                                item.remove();
-                                bedroomCount--;
-                                updateItemLabels(bedroomsContainer, 'bedroom-item', 'Спальня');
+                        if (bedrooms.length > 0) {
+                            bedrooms.forEach((bedroom, index) => {
+                                bedroomCount++;
+                                const item = document.createElement('div');
+                                item.className = 'bedroom-item item-container';
+                                item.innerHTML = `
+                                    <div class="form-group">
+                                        <label>Спальня #${index + 1}</label>
+                                        <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" value="${bedroom.bedroom_size || ''}" placeholder="Площадь, м²">
+                                    </div>
+                                    <button type="button" class="remove-button remove-bedroom" style="${bedroomCount > 1 ? '' : 'display: none;'}">Удалить</button>
+                                `;
+                                bedroomsContainer.appendChild(item);
+                                item.querySelector('.remove-bedroom').addEventListener('click', function() {
+                                    item.remove();
+                                    bedroomCount--;
+                                    updateItemLabels(bedroomsContainer, 'bedroom-item', 'Спальня');
+                                });
                             });
-                        });
-                        if (bedroomCount === 0) {
+                        } else {
                             bedroomCount = 1;
                             bedroomsContainer.innerHTML = `
                                 <div class="bedroom-item item-container">
@@ -1102,25 +1121,26 @@
                         const bathroomsContainer = document.getElementById('bathroomsContainer');
                         bathroomsContainer.innerHTML = '';
                         let bathroomCount = 0;
-                        data.bathrooms.forEach((bathroom, index) => {
-                            bathroomCount++;
-                            const item = document.createElement('div');
-                            item.className = 'bathroom-item item-container';
-                            item.innerHTML = `
-                                <div class="form-group">
-                                    <label>Санузел #${index + 1}</label>
-                                    <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" value="${bathroom.bathroom_size || ''}" placeholder="Площадь, м²">
-                                </div>
-                                <button type="button" class="remove-button remove-bathroom" style="${bathroomCount > 1 ? '' : 'display: none;'}">Удалить</button>
-                            `;
-                            bathroomsContainer.appendChild(item);
-                            item.querySelector('.remove-bathroom').addEventListener('click', function() {
-                                item.remove();
-                                bathroomCount--;
-                                updateItemLabels(bathroomsContainer, 'bathroom-item', 'Санузел');
+                        if (bathrooms.length > 0) {
+                            bathrooms.forEach((bathroom, index) => {
+                                bathroomCount++;
+                                const item = document.createElement('div');
+                                item.className = 'bathroom-item item-container';
+                                item.innerHTML = `
+                                    <div class="form-group">
+                                        <label>Санузел #${index + 1}</label>
+                                        <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" value="${bathroom.bathroom_size || ''}" placeholder="Площадь, м²">
+                                    </div>
+                                    <button type="button" class="remove-button remove-bathroom" style="${bathroomCount > 1 ? '' : 'display: none;'}">Удалить</button>
+                                `;
+                                bathroomsContainer.appendChild(item);
+                                item.querySelector('.remove-bathroom').addEventListener('click', function() {
+                                    item.remove();
+                                    bathroomCount--;
+                                    updateItemLabels(bathroomsContainer, 'bathroom-item', 'Санузел');
+                                });
                             });
-                        });
-                        if (bathroomCount === 0) {
+                        } else {
                             bathroomCount = 1;
                             bathroomsContainer.innerHTML = `
                                 <div class="bathroom-item item-container">
@@ -1146,26 +1166,26 @@
                             </div>
                         `;
                         let balconyCount = 0;
-                        data.balconies.forEach((balcony, index) => {
-                            balconyCount++;
-                            const item = document.createElement('div');
-                            item.className = 'balcony-item item-container';
-                            item.innerHTML = `
-                                <div class="form-group">
-                                    <label>Балкон #${index + 1}</label>
-                                    <input type="number" step="0.01" class="balcony-size" name="balconies[]" value="${balcony.balcony_size || ''}" placeholder="Площадь, м²">
-                                </div>
-                                <button type="button" class="remove-button remove-balcony" style="${balconyCount > 1 ? '' : 'display: none;'}">Удалить</button>
-                            `;
-                            balconiesContainer.appendChild(item);
-                            item.querySelector('.remove-balcony').addEventListener('click', function() {
-                                item.remove();
-                                balconyCount--;
-                                updateItemLabels(balconiesContainer, 'balcony-item', 'Балкон');
+                        if (balconies.length > 0) {
+                            balconiesContainer.innerHTML = '<h3>Балконы</h3>';
+                            balconies.forEach((balcony, index) => {
+                                balconyCount++;
+                                const item = document.createElement('div');
+                                item.className = 'balcony-item item-container';
+                                item.innerHTML = `
+                                    <div class="form-group">
+                                        <label>Балкон #${index + 1}</label>
+                                        <input type="number" step="0.01" class="balcony-size" name="balconies[]" value="${balcony.balcony_size || ''}" placeholder="Площадь, м²">
+                                    </div>
+                                    <button type="button" class="remove-button remove-balcony" style="${balconyCount > 1 ? '' : 'display: none;'}">Удалить</button>
+                                `;
+                                balconiesContainer.appendChild(item);
+                                item.querySelector('.remove-balcony').addEventListener('click', function() {
+                                    item.remove();
+                                    balconyCount--;
+                                    updateItemLabels(balconiesContainer, 'balcony-item', 'Балкон');
+                                });
                             });
-                        });
-                        if (balconyCount === 0) {
-                            balconyCount = 1;
                         }
 
                         // Инициализация состояния формы

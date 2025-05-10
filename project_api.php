@@ -10,12 +10,12 @@ ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
 
-// Include authentication
-require_once 'auth.php';
+// Start session
+session_start();
 
 // Debug logging function
 function logDebug($message) {
-    file_put_contents('debug_post.log', date('Y-m-d H:i:s') . " - $message\n", FILE_APPEND);
+    file_put_contents('debug_api.log', date('Y-m-d H:i:s') . " - $message\n", FILE_APPEND);
 }
 logDebug("project_api.php started");
 
@@ -26,11 +26,101 @@ function respond($success, $message = '', $data = []) {
     exit;
 }
 
+// Check authentication
+if (!isset($_SESSION['user_id'])) {
+    logDebug("Unauthenticated access to project_api.php");
+    respond(false, 'Unauthorized: Please log in');
+}
+
+// Database connection
+try {
+    $pdo = new PDO('pgsql:host=pg4.sweb.ru;port=5433;dbname=dkaurorads', 'dkaurorads', '5djStu6Bh');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    logDebug("Database connection error: " . $e->getMessage());
+    respond(false, 'Database connection error: ' . $e->getMessage());
+}
+
+// Include authentication (assuming auth.php handles role-based access)
+require_once 'auth.php';
+
 // Get action
 $action = $_GET['action'] ?? '';
 logDebug("Action requested: $action");
 
-if ($action === 'save') {
+if ($action === 'get') {
+    // Restrict access to authorized roles
+    restrictAccess(['admin', 'manager', 'external_user']);
+
+    $project_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    if ($project_id <= 0) {
+        respond(false, 'Invalid project ID');
+    }
+
+    try {
+        // Fetch project data
+        $stmt = $pdo->prepare("SELECT * FROM projects WHERE id = ?");
+        $stmt->execute([$project_id]);
+        $project = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$project) {
+            respond(false, 'Project not found');
+        }
+
+        // Fetch project parameters
+        $stmt = $pdo->prepare("SELECT * FROM project_params WHERE project_id = ?");
+        $stmt->execute([$project_id]);
+        $params = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        // Fetch project sections
+        $stmt = $pdo->prepare("SELECT section_code FROM project_sections WHERE project_id = ?");
+        $stmt->execute([$project_id]);
+        $sections = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        // Fetch project images
+        $stmt = $pdo->prepare("SELECT image_path FROM project_images WHERE project_id = ?");
+        $stmt->execute([$project_id]);
+        $images = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch project files
+        $stmt = $pdo->prepare("SELECT file_path, file_type, file_name, file_size FROM project_files WHERE project_id = ?");
+        $stmt->execute([$project_id]);
+        $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch bedrooms
+        $stmt = $pdo->prepare("SELECT bedroom_number, bedroom_size FROM bedrooms WHERE project_id = ? ORDER BY bedroom_number");
+        $stmt->execute([$project_id]);
+        $bedrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch bathrooms
+        $stmt = $pdo->prepare("SELECT bathroom_number, bathroom_size FROM bathrooms WHERE project_id = ? ORDER BY bathroom_number");
+        $stmt->execute([$project_id]);
+        $bathrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch balconies
+        $stmt = $pdo->prepare("SELECT balcony_number, balcony_size FROM balconies WHERE project_id = ? ORDER BY balcony_number");
+        $stmt->execute([$project_id]);
+        $balconies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Prepare response
+        $response_data = [
+            'project' => $project,
+            'params' => $params,
+            'sections' => $sections,
+            'images' => $images,
+            'files' => $files,
+            'bedrooms' => $bedrooms,
+            'bathrooms' => $bathrooms,
+            'balconies' => $balconies
+        ];
+
+        respond(true, 'Project data retrieved successfully', $response_data);
+    } catch (Exception $e) {
+        logDebug("Error fetching project: " . $e->getMessage());
+        respond(false, 'Error fetching project: ' . $e->getMessage());
+    }
+} elseif ($action === 'save') {
+    // Restrict access to authorized roles
     restrictAccess(['admin', 'manager', 'external_user']);
 
     // Check if form data is received
@@ -51,7 +141,6 @@ if ($action === 'save') {
     $model_3d_view = trim($_POST['model3DView'] ?? '');
     $embed_code = trim($_POST['embedCode'] ?? '');
     $notes = trim($_POST['projectNotes'] ?? '');
-    $custom_fields = json_decode($_POST['customFields'] ?? '{}', true) ?: [];
     $total_area = floatval($_POST['totalArea'] ?? 0);
     $sizes = trim($_POST['sizes'] ?? '');
     $square_fund = floatval($_POST['squareFund'] ?? 0);
@@ -70,12 +159,10 @@ if ($action === 'save') {
     $tech_room = floatval($_POST['techRoom'] ?? 0);
     $sauna_room = $_POST['sauna_room'] ?? 'N';
     $sq_sauna_room = floatval($_POST['sqSaunaRoom'] ?? 0);
-    $custom_params = json_decode($_POST['customParams'] ?? '{}', true) ?: [];
     $bedrooms = array_filter($_POST['bedrooms'] ?? [], function($value) { return $value !== ''; });
     $bathrooms = array_filter($_POST['bathrooms'] ?? [], function($value) { return $value !== ''; });
     $balconies = array_filter($_POST['balconies'] ?? [], function($value) { return $value !== ''; });
     $project_sections = array_unique($_POST['project_sections'] ?? []);
-    $tags = array_filter($_POST['tags'] ?? [], function($value) { return trim($value) !== ''; });
 
     // Validate required fields
     if (empty($name)) {
@@ -87,11 +174,11 @@ if ($action === 'save') {
 
         // Save or update project
         if ($project_id) {
-            $stmt = $pdo->prepare("UPDATE projects SET name = ?, description = ?, floors = ?, has_project = ?, model_3d_view = ?, embed_code = ?, notes = ?, custom_fields = ? WHERE id = ?");
-            $stmt->execute([$name, $description, $floors, $has_project, $model_3d_view, $embed_code, $notes, json_encode($custom_fields), $project_id]);
+            $stmt = $pdo->prepare("UPDATE projects SET name = ?, description = ?, floors = ?, has_project = ?, model_3d_view = ?, embed_code = ?, notes = ? WHERE id = ?");
+            $stmt->execute([$name, $description, $floors, $has_project, $model_3d_view, $embed_code, $notes, $project_id]);
         } else {
-            $stmt = $pdo->prepare("INSERT INTO projects (name, description, floors, has_project, model_3d_view, embed_code, notes, custom_fields) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$name, $description, $floors, $has_project, $model_3d_view, $embed_code, $notes, json_encode($custom_fields)]);
+            $stmt = $pdo->prepare("INSERT INTO projects (name, description, floors, has_project, model_3d_view, embed_code, notes) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$name, $description, $floors, $has_project, $model_3d_view, $embed_code, $notes]);
             $project_id = $pdo->lastInsertId('projects_id_seq');
         }
 
@@ -100,29 +187,21 @@ if ($action === 'save') {
         $stmt->execute([$_SESSION['user_id'], $project_id ? 'update_project' : 'create_project', 'project', $project_id, json_encode(['name' => $name])]);
 
         // Clear related tables
-        $tables = ['project_params', 'project_sections', 'bedrooms', 'bathrooms', 'balconies', 'project_tags'];
+        $tables = ['project_params', 'project_sections', 'bedrooms', 'bathrooms', 'balconies'];
         foreach ($tables as $table) {
             $stmt = $pdo->prepare("DELETE FROM $table WHERE project_id = ?");
             $stmt->execute([$project_id]);
         }
 
         // Save project parameters
-        $stmt = $pdo->prepare("INSERT INTO project_params (project_id, total_area, sizes, square_fund, foundation_shape, square_1fl, square_terrace_1fl, square_2fl, square_terrace_2fl, kitchen_living_combined, square_kitchen_living, square_kitchen, square_living, master_bedroom, sq_master_bedroom, dirt_room, tech_room, sauna_room, sq_sauna_room, custom_params) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$project_id, $total_area, $sizes, $square_fund, $foundation_shape, $square_1fl, $square_terrace_1fl, $square_2fl, $square_terrace_2fl, $kitchen_living_combined, $square_kitchen_living, $square_kitchen, $square_living, $master_bedroom, $sq_master_bedroom, $dirt_room, $tech_room, $sauna_room, $sq_sauna_room, json_encode($custom_params)]);
+        $stmt = $pdo->prepare("INSERT INTO project_params (project_id, total_area, sizes, square_fund, foundation_shape, square_1fl, square_terrace_1fl, square_2fl, square_terrace_2fl, kitchen_living_combined, square_kitchen_living, square_kitchen, square_living, master_bedroom, sq_master_bedroom, dirt_room, tech_room, sauna_room, sq_sauna_room) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$project_id, $total_area, $sizes, $square_fund, $foundation_shape, $square_1fl, $square_terrace_1fl, $square_2fl, $square_terrace_2fl, $kitchen_living_combined, $square_kitchen_living, $square_kitchen, $square_living, $master_bedroom, $sq_master_bedroom, $dirt_room, $tech_room, $sauna_room, $sq_sauna_room]);
 
         // Save project sections
         if (!empty($project_sections)) {
             $stmt = $pdo->prepare("INSERT INTO project_sections (project_id, section_code) VALUES (?, ?)");
             foreach ($project_sections as $section) {
                 $stmt->execute([$project_id, $section]);
-            }
-        }
-
-        // Save tags
-        if (!empty($tags)) {
-            $stmt = $pdo->prepare("INSERT INTO project_tags (project_id, tag_name) VALUES (?, ?)");
-            foreach ($tags as $tag) {
-                $stmt->execute([$project_id, $tag]);
             }
         }
 
@@ -239,7 +318,7 @@ if ($action === 'save') {
         // Handle .skp file
         if (isset($_FILES['modelSKPFile']) && $_FILES['modelSKPFile']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['modelSKPFile'];
-            if ($file['type'] === 'application/octet-stream' && pathinfo($file['name'], PATHINFO_EXTENSION) === 'skp' && $file['size'] <= 120 * 1024 * 1024) {
+            if ($file['size'] <= 120 * 1024 * 1024 && pathinfo($file['name'], PATHINFO_EXTENSION) === 'skp') {
                 $filename = uniqid() . '_model.skp';
                 $destination = $upload_dir . $filename;
                 if (!move_uploaded_file($file['tmp_name'], $destination)) {
@@ -270,120 +349,16 @@ if ($action === 'save') {
         }
 
         $pdo->commit();
-        respond(true, 'Project saved successfully', ['project_id' => $project_id]);
+        respond(true, 'Project saved successfully');
     } catch (Exception $e) {
         $pdo->rollBack();
         logDebug("Error saving project: " . $e->getMessage());
         respond(false, 'Error saving project: ' . $e->getMessage());
     }
-} elseif ($action === 'get') {
-    restrictAccess(['admin', 'manager', 'external_user']);
-    $id = intval($_GET['id'] ?? 0);
-    if ($id <= 0) {
-        respond(false, 'Invalid project ID');
-    }
-
-    try {
-        $project = $pdo->query("SELECT * FROM projects WHERE id = $id")->fetch();
-        if (!$project) {
-            respond(false, 'Project not found');
-        }
-
-        $params = $pdo->query("SELECT * FROM project_params WHERE project_id = $id")->fetch() ?: [];
-        $sections = $pdo->query("SELECT section_code FROM project_sections WHERE project_id = $id")->fetchAll(PDO::FETCH_COLUMN);
-        $images = $pdo->query("SELECT image_path FROM project_images WHERE project_id = $id")->fetchAll(PDO::FETCH_ASSOC);
-        $files = $pdo->query("SELECT file_path, file_name, file_type, file_size FROM project_files WHERE project_id = $id")->fetchAll(PDO::FETCH_ASSOC);
-        $bedrooms = $pdo->query("SELECT bedroom_size FROM bedrooms WHERE project_id = $id ORDER BY bedroom_number")->fetchAll(PDO::FETCH_ASSOC);
-        $bathrooms = $pdo->query("SELECT bathroom_size FROM bathrooms WHERE project_id = $id ORDER BY bathroom_number")->fetchAll(PDO::FETCH_ASSOC);
-        $balconies = $pdo->query("SELECT balcony_size FROM balconies WHERE project_id = $id ORDER BY balcony_number")->fetchAll(PDO::FETCH_ASSOC);
-        $tags = $pdo->query("SELECT tag_name FROM project_tags WHERE project_id = $id")->fetchAll(PDO::FETCH_COLUMN);
-
-        respond(true, 'Project data retrieved successfully', [
-            'project' => $project,
-            'params' => $params,
-            'sections' => $sections,
-            'images' => $images,
-            'files' => $files,
-            'bedrooms' => $bedrooms,
-            'bathrooms' => $bathrooms,
-            'balconies' => $balconies,
-            'tags' => $tags
-        ]);
-    } catch (Exception $e) {
-        logDebug("Error fetching project data: " . $e->getMessage());
-        respond(false, 'Error fetching project data: ' . $e->getMessage());
-    }
-} elseif ($action === 'list') {
-    restrictAccess(['admin', 'manager', 'external_user']);
-    $page = intval($_GET['page'] ?? 1);
-    $per_page = 10;
-    $offset = ($page - 1) * $per_page;
-    $tags = $_GET['tags'] ?? '';
-
-    $query = "SELECT p.* FROM projects p";
-    $params = [];
-    if ($_SESSION['is_external'] && $_SESSION['user_role'] === 'external_user') {
-        $project_ids = $_SESSION['permissions']['projects'] ?? [];
-        if (empty($project_ids)) {
-            respond(true, 'No projects accessible', ['projects' => [], 'total' => 0]);
-        }
-        $query .= " WHERE p.id = ANY(?)";
-        $params[] = '{' . implode(',', $project_ids) . '}';
-    }
-    if ($tags) {
-        $query .= ($_SESSION['is_external'] ? " AND" : " WHERE") . " EXISTS (SELECT 1 FROM project_tags pt WHERE pt.project_id = p.id AND pt.tag_name = ANY(?))";
-        $params[] = '{' . implode(',', array_map('trim', explode(',', $tags))) . '}';
-    }
-    $query .= " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-    $params[] = $per_page;
-    $params[] = $offset;
-
-    try {
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($params);
-        $projects = $stmt->fetchAll();
-
-        $count_query = "SELECT COUNT(*) FROM projects p";
-        if ($_SESSION['is_external'] && $_SESSION['user_role'] === 'external_user') {
-            $count_query .= " WHERE p.id = ANY(?)";
-            $stmt = $pdo->prepare($count_query);
-            $stmt->execute(['{' . implode(',', $project_ids) . '}']);
-        } else {
-            $stmt = $pdo->query($count_query);
-        }
-        $total = $stmt->fetchColumn();
-
-        respond(true, 'Projects retrieved successfully', ['projects' => $projects, 'total' => $total, 'page' => $page, 'per_page' => $per_page]);
-    } catch (Exception $e) {
-        logDebug("Error listing projects: " . $e->getMessage());
-        respond(false, 'Error listing projects: ' . $e->getMessage());
-    }
-} elseif ($action === 'delete') {
-    restrictAccess(['admin', 'manager']);
-    $id = intval($_GET['id'] ?? 0);
-    if ($id <= 0) {
-        respond(false, 'Invalid project ID');
-    }
-
-    try {
-        $pdo->beginTransaction();
-        $stmt = $pdo->prepare("DELETE FROM projects WHERE id = ?");
-        $stmt->execute([$id]);
-        if ($stmt->rowCount() === 0) {
-            respond(false, 'Project not found');
-        }
-        // Log audit
-        $stmt = $pdo->prepare("INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$_SESSION['user_id'], 'delete_project', 'project', $id, json_encode(['id' => $id])]);
-        $pdo->commit();
-        respond(true, 'Project deleted successfully');
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        logDebug("Error deleting project: " . $e->getMessage());
-        respond(false, 'Error deleting project: ' . $e->getMessage());
-    }
 } else {
-    logDebug("Invalid action: $action");
     respond(false, 'Invalid action');
 }
+
+// Flush output buffer
+ob_end_flush();
 ?>
