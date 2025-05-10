@@ -489,13 +489,11 @@
                     <div id="balconiesContainer" style="display: none;">
                         <h3>Балконы</h3>
                         <div class="balcony-item item-container">
-                            <div class="balcony-item item-container">
-                                <div class="form-group">
-                                    <label>Балкон #1</label>
-                                    <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
-                                </div>
-                                <button type="button" class="remove-button remove-balcony" style="display: none;">Удалить</button>
+                            <div class="form-group">
+                                <label>Балкон #1</label>
+                                <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
                             </div>
+                            <button type="button" class="remove-button remove-balcony" style="display: none;">Удалить</button>
                         </div>
                     </div>
                     <button type="button" id="addBalcony" style="display: none;">Добавить балкон</button>
@@ -518,6 +516,13 @@
     </div>
 
     <script>
+        // Utility function to safely escape HTML attributes
+        function escapeHTML(str) {
+            if (typeof str !== 'string') return '';
+            return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // Toggle visibility of fields based on user input
         function toggleFloorFields() {
             const floors = document.querySelector('input[name="floors"]:checked').value;
             const secondFloorFields = document.getElementById('secondFloorParams');
@@ -574,16 +579,22 @@
             }
         }
 
+        // Update labels for dynamic fields (bedrooms, bathrooms, balconies)
         function updateItemLabels(container, itemClass, labelPrefix) {
             const items = container.querySelectorAll(`.${itemClass}`);
             items.forEach((item, index) => {
                 const label = item.querySelector('label');
-                label.textContent = `${labelPrefix} #${index + 1}`;
+                if (label) {
+                    label.textContent = `${labelPrefix} #${index + 1}`;
+                }
                 const removeBtn = item.querySelector('.remove-button');
-                removeBtn.style.display = items.length > 1 ? 'inline-block' : 'none';
+                if (removeBtn) {
+                    removeBtn.style.display = items.length > 1 ? 'inline-block' : 'none';
+                }
             });
         }
 
+        // Setup drag-and-drop zones for file uploads
         function setupDropZone(dropZone, fileInput, previewContainer, multiple, accept) {
             dropZone.addEventListener('click', () => fileInput.click());
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -657,7 +668,7 @@
                         previewItem.innerHTML = `
                             <div style="padding: 10px; text-align: center;">
                                 <div style="font-size: 40px;">📄</div>
-                                <div style="font-size: 12px; word-break: break-all;">${file.name}</div>
+                                <div style="font-size: 12px; word-break: break-all;">${escapeHTML(file.name)}</div>
                             </div>
                             <button class="remove-btn">×</button>
                         `;
@@ -679,6 +690,7 @@
             }
         }
 
+        // Display existing images or files from the server
         function displayExistingImage(path, previewContainer, isImage) {
             if (!path) return;
             const previewItem = document.createElement('div');
@@ -700,7 +712,7 @@
                 previewItem.innerHTML = `
                     <div style="padding: 10px; text-align: center;">
                         <div style="font-size: 40px;">📄</div>
-                        <div style="font-size: 12px; word-break: break-all;">${fileName}</div>
+                        <div style="font-size: 12px; word-break: break-all;">${escapeHTML(fileName)}</div>
                     </div>
                     <button class="remove-btn">×</button>
                 `;
@@ -712,6 +724,7 @@
             previewContainer.appendChild(previewItem);
         }
 
+        // Handle form submission
         function uploadProject() {
             const submitBtn = document.getElementById('submitBtn');
             const progressBar = document.getElementById('uploadProgress');
@@ -723,7 +736,7 @@
             const form = document.getElementById('projectForm');
             const formData = new FormData();
 
-            // Явное добавление всех полей формы
+            // Explicitly add all form fields
             const inputs = form.querySelectorAll('input:not([type="file"]), textarea, select');
             inputs.forEach(input => {
                 if (input.type === 'radio' || input.type === 'checkbox') {
@@ -735,7 +748,7 @@
                 }
             });
 
-            // Добавление множественных полей
+            // Add dynamic fields
             const bedrooms = form.querySelectorAll('input[name="bedrooms[]"]');
             bedrooms.forEach(input => {
                 if (input.value) {
@@ -757,7 +770,7 @@
                 }
             });
 
-            // Уникальные project_sections
+            // Add unique project sections
             const sections = [...new Set(
                 Array.from(form.querySelectorAll('input[name="project_sections[]"]:checked'))
                     .map(input => input.value)
@@ -766,7 +779,7 @@
                 formData.append('project_sections[]', value);
             });
 
-            // Добавление файлов
+            // Add files
             const mainImageInput = document.getElementById('mainImageInput');
             if (mainImageInput.files[0]) {
                 formData.append('mainImageInput', mainImageInput.files[0]);
@@ -800,7 +813,7 @@
                 console.log('rdZipFile not selected');
             }
 
-            // Отладка: логируем содержимое FormData
+            // Debug: Log FormData contents
             console.log('FormData entries:');
             for (let [key, value] of formData.entries()) {
                 console.log(`${key}: ${value instanceof File ? value.name + ' (' + value.size + ' bytes)' : value}`);
@@ -837,6 +850,7 @@
             xhr.send(formData);
         }
 
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize drop zones
             setupDropZone(
@@ -861,7 +875,7 @@
                 'pdf|dwg|jpg|jpeg|png|zip|rar'
             );
 
-            // Логирование выбора rdZipFile
+            // Validate rdZipFile on change
             document.getElementById('rdZipFile').addEventListener('change', function() {
                 if (this.files[0]) {
                     const file = this.files[0];
@@ -880,16 +894,34 @@
                 const container = document.getElementById('bedroomsContainer');
                 const newItem = document.createElement('div');
                 newItem.className = 'bedroom-item item-container';
-                newItem.innerHTML = `
-                    <div class="form-group">
-                        <label>Спальня #${bedroomCount}</label>
-                        <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" placeholder="Площадь, м²">
-                    </div>
-                    <button type="button" class="remove-button remove-bedroom">Удалить</button>
-                `;
+                
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group';
+                
+                const label = document.createElement('label');
+                label.textContent = `Спальня #${bedroomCount}`;
+                
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.01';
+                input.className = 'bedroom-size';
+                input.name = 'bedrooms[]';
+                input.placeholder = 'Площадь, м²';
+                
+                formGroup.appendChild(label);
+                formGroup.appendChild(input);
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'remove-button remove-bedroom';
+                removeBtn.textContent = 'Удалить';
+                
+                newItem.appendChild(formGroup);
+                newItem.appendChild(removeBtn);
                 container.appendChild(newItem);
+                
                 updateItemLabels(container, 'bedroom-item', 'Спальня');
-                newItem.querySelector('.remove-bedroom').addEventListener('click', function() {
+                removeBtn.addEventListener('click', function() {
                     newItem.remove();
                     bedroomCount--;
                     updateItemLabels(container, 'bedroom-item', 'Спальня');
@@ -902,16 +934,34 @@
                 const container = document.getElementById('bathroomsContainer');
                 const newItem = document.createElement('div');
                 newItem.className = 'bathroom-item item-container';
-                newItem.innerHTML = `
-                    <div class="form-group">
-                        <label>Санузел #${bathroomCount}</label>
-                        <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" placeholder="Площадь, м²">
-                    </div>
-                    <button type="button" class="remove-button remove-bathroom">Удалить</button>
-                `;
+                
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group';
+                
+                const label = document.createElement('label');
+                label.textContent = `Санузел #${bathroomCount}`;
+                
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.01';
+                input.className = 'bathroom-size';
+                input.name = 'bathrooms[]';
+                input.placeholder = 'Площадь, м²';
+                
+                formGroup.appendChild(label);
+                formGroup.appendChild(input);
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'remove-button remove-bathroom';
+                removeBtn.textContent = 'Удалить';
+                
+                newItem.appendChild(formGroup);
+                newItem.appendChild(removeBtn);
                 container.appendChild(newItem);
+                
                 updateItemLabels(container, 'bathroom-item', 'Санузел');
-                newItem.querySelector('.remove-bathroom').addEventListener('click', function() {
+                removeBtn.addEventListener('click', function() {
                     newItem.remove();
                     bathroomCount--;
                     updateItemLabels(container, 'bathroom-item', 'Санузел');
@@ -924,16 +974,34 @@
                 const container = document.getElementById('balconiesContainer');
                 const newItem = document.createElement('div');
                 newItem.className = 'balcony-item item-container';
-                newItem.innerHTML = `
-                    <div class="form-group">
-                        <label>Балкон #${balconyCount}</label>
-                        <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
-                    </div>
-                    <button type="button" class="remove-button remove-balcony">Удалить</button>
-                `;
+                
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group';
+                
+                const label = document.createElement('label');
+                label.textContent = `Балкон #${balconyCount}`;
+                
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.01';
+                input.className = 'balcony-size';
+                input.name = 'balconies[]';
+                input.placeholder = 'Площадь, м²';
+                
+                formGroup.appendChild(label);
+                formGroup.appendChild(input);
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'remove-button remove-balcony';
+                removeBtn.textContent = 'Удалить';
+                
+                newItem.appendChild(formGroup);
+                newItem.appendChild(removeBtn);
                 container.appendChild(newItem);
+                
                 updateItemLabels(container, 'balcony-item', 'Балкон');
-                newItem.querySelector('.remove-balcony').addEventListener('click', function() {
+                removeBtn.addEventListener('click', function() {
                     newItem.remove();
                     balconyCount--;
                     updateItemLabels(container, 'balcony-item', 'Балкон');
@@ -957,7 +1025,7 @@
                 radio.addEventListener('change', toggleSaunaArea);
             });
 
-            // Form submission with enhanced protection
+            // Form submission with protection against double submission
             let isSubmitting = false;
             document.getElementById('projectForm').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -976,7 +1044,7 @@
                 }
             });
 
-            // Reset isSubmitting on page unload to prevent lock
+            // Reset isSubmitting on page unload
             window.addEventListener('beforeunload', function() {
                 isSubmitting = false;
             });
@@ -1024,7 +1092,7 @@
                             return;
                         }
 
-                        // Заполнение полей формы
+                        // Extract data with defaults
                         const project = data.data.project || {};
                         const params = data.data.params || {};
                         const sections = data.data.sections || [];
@@ -1034,54 +1102,68 @@
                         const bathrooms = data.data.bathrooms || [];
                         const balconies = data.data.balconies || [];
 
+                        // Fill basic project fields
                         document.getElementById('projectName').value = project.name || '';
                         document.getElementById('projectDescription').value = project.description || '';
-                        document.querySelector(`input[name="floors"][value="${project.floors || '1'}"]`).checked = true;
+                        const floorsInput = document.querySelector(`input[name="floors"][value="${escapeHTML(project.floors || '1')}"]`);
+                        if (floorsInput) floorsInput.checked = true;
                         document.getElementById('totalArea').value = params.total_area || '';
-                        document.querySelector(`input[name="has_project"][value="${project.has_project || 'Y'}"]`).checked = true;
+                        const hasProjectInput = document.querySelector(`input[name="has_project"][value="${escapeHTML(project.has_project || 'Y')}"]`);
+                        if (hasProjectInput) hasProjectInput.checked = true;
                         document.getElementById('model3DView').value = project.model_3d_view || '';
                         document.getElementById('embedCode').value = project.embed_code || '';
                         document.getElementById('projectNotes').value = project.notes || '';
 
-                        // Разделы проекта
-                        sections.forEach(section => {
-                            const checkbox = document.querySelector(`input[name="project_sections[]"][value="${section}"]`);
-                            if (checkbox) checkbox.checked = true;
+                        // Fill project sections
+                        document.querySelectorAll('input[name="project_sections[]"]').forEach(checkbox => {
+                            checkbox.checked = sections.includes(checkbox.value);
                         });
 
-                        // Отображение существующих файлов
+                        // Display existing files
                         if (project.main_pic) {
                             displayExistingImage(project.main_pic, document.getElementById('mainImagePreview'), true);
                         }
                         images.forEach(image => {
-                            displayExistingImage(image.image_path, document.getElementById('additionalImagesPreview'), true);
+                            if (image.image_path) {
+                                displayExistingImage(image.image_path, document.getElementById('additionalImagesPreview'), true);
+                            }
                         });
                         files.forEach(file => {
-                            displayExistingImage(file.file_path, document.getElementById('projectFilesPreview'), false);
+                            if (file.file_path) {
+                                displayExistingImage(file.file_path, document.getElementById('projectFilesPreview'), false);
+                            }
                         });
-                        displayExistingImage(project.model_3d_skp, document.getElementById('mainImagePreview'), false);
-                        displayExistingImage(project.rd_zip_path, document.getElementById('mainImagePreview'), false);
+                        if (project.model_3d_skp) {
+                            displayExistingImage(project.model_3d_skp, document.getElementById('projectFilesPreview'), false);
+                        }
+                        if (project.rd_zip_path) {
+                            displayExistingImage(project.rd_zip_path, document.getElementById('projectFilesPreview'), false);
+                        }
 
-                        // Параметры проекта
+                        // Fill project parameters
                         document.getElementById('sizes').value = params.sizes || '';
                         document.getElementById('squareFund').value = params.square_fund || '';
-                        document.querySelector(`input[name="foundation_shape"][value="${params.foundation_shape || 'Прямоугольный'}"]`).checked = true;
+                        const foundationShapeInput = document.querySelector(`input[name="foundation_shape"][value="${escapeHTML(params.foundation_shape || 'Прямоугольный')}"]`);
+                        if (foundationShapeInput) foundationShapeInput.checked = true;
                         document.getElementById('square1fl').value = params.square_1fl || '';
                         document.getElementById('squareTerrace1fl').value = params.square_terrace_1fl || '';
                         document.getElementById('square2fl').value = params.square_2fl || '';
                         document.getElementById('squareTerrace2fl').value = params.square_terrace_2fl || '';
-                        document.querySelector(`input[name="kitchen_living_combined"][value="${params.kitchen_living_combined || 'N'}"]`).checked = true;
+                        const kitchenLivingInput = document.querySelector(`input[name="kitchen_living_combined"][value="${escapeHTML(params.kitchen_living_combined || 'N')}"]`);
+                        if (kitchenLivingInput) kitchenLivingInput.checked = true;
                         document.getElementById('squareKitchenLiving').value = params.square_kitchen_living || '';
                         document.getElementById('squareKitchen').value = params.square_kitchen || '';
                         document.getElementById('squareLiving').value = params.square_living || '';
-                        document.querySelector(`input[name="master_bedroom"][value="${params.master_bedroom || 'N'}"]`).checked = true;
+                        const masterBedroomInput = document.querySelector(`input[name="master_bedroom"][value="${escapeHTML(params.master_bedroom || 'N')}"]`);
+                        if (masterBedroomInput) masterBedroomInput.checked = true;
                         document.getElementById('sqMasterBedroom').value = params.sq_master_bedroom || '';
                         document.getElementById('dirtRoom').value = params.dirt_room || '';
                         document.getElementById('techRoom').value = params.tech_room || '';
-                        document.querySelector(`input[name="sauna_room"][value="${params.sauna_room || 'N'}"]`).checked = true;
+                        const saunaRoomInput = document.querySelector(`input[name="sauna_room"][value="${escapeHTML(params.sauna_room || 'N')}"]`);
+                        if (saunaRoomInput) saunaRoomInput.checked = true;
                         document.getElementById('sqSaunaRoom').value = params.sq_sauna_room || '';
 
-                        // Спальни
+                        // Fill bedrooms using DOM API
                         const bedroomsContainer = document.getElementById('bedroomsContainer');
                         bedroomsContainer.innerHTML = '';
                         let bedroomCount = 0;
@@ -1090,15 +1172,35 @@
                                 bedroomCount++;
                                 const item = document.createElement('div');
                                 item.className = 'bedroom-item item-container';
-                                item.innerHTML = `
-                                    <div class="form-group">
-                                        <label>Спальня #${index + 1}</label>
-                                        <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" value="${bedroom.bedroom_size || ''}" placeholder="Площадь, м²">
-                                    </div>
-                                    <button type="button" class="remove-button remove-bedroom" style="${bedroomCount > 1 ? '' : 'display: none;'}">Удалить</button>
-                                `;
+                                
+                                const formGroup = document.createElement('div');
+                                formGroup.className = 'form-group';
+                                
+                                const label = document.createElement('label');
+                                label.textContent = `Спальня #${index + 1}`;
+                                
+                                const input = document.createElement('input');
+                                input.type = 'number';
+                                input.step = '0.01';
+                                input.className = 'bedroom-size';
+                                input.name = 'bedrooms[]';
+                                input.placeholder = 'Площадь, м²';
+                                input.value = bedroom.bedroom_size || '';
+                                
+                                formGroup.appendChild(label);
+                                formGroup.appendChild(input);
+                                
+                                const removeBtn = document.createElement('button');
+                                removeBtn.type = 'button';
+                                removeBtn.className = 'remove-button remove-bedroom';
+                                removeBtn.textContent = 'Удалить';
+                                removeBtn.style.display = bedroomCount > 1 ? 'inline-block' : 'none';
+                                
+                                item.appendChild(formGroup);
+                                item.appendChild(removeBtn);
                                 bedroomsContainer.appendChild(item);
-                                item.querySelector('.remove-bedroom').addEventListener('click', function() {
+                                
+                                removeBtn.addEventListener('click', function() {
                                     item.remove();
                                     bedroomCount--;
                                     updateItemLabels(bedroomsContainer, 'bedroom-item', 'Спальня');
@@ -1106,18 +1208,38 @@
                             });
                         } else {
                             bedroomCount = 1;
-                            bedroomsContainer.innerHTML = `
-                                <div class="bedroom-item item-container">
-                                    <div class="form-group">
-                                        <label>Спальня #1</label>
-                                        <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" placeholder="Площадь, м²">
-                                    </div>
-                                    <button type="button" class="remove-button remove-bedroom" style="display: none;">Удалить</button>
-                                </div>
-                            `;
+                            const item = document.createElement('div');
+                            item.className = 'bedroom-item item-container';
+                            
+                            const formGroup = document.createElement('div');
+                            formGroup.className = 'form-group';
+                            
+                            const label = document.createElement('label');
+                            label.textContent = 'Спальня #1';
+                            
+                            const input = document.createElement('input');
+                            input.type = 'number';
+                            input.step = '0.01';
+                            input.className = 'bedroom-size';
+                            input.name = 'bedrooms[]';
+                            input.placeholder = 'Площадь, м²';
+                            
+                            formGroup.appendChild(label);
+                            formGroup.appendChild(input);
+                            
+                            const removeBtn = document.createElement('button');
+                            removeBtn.type = 'button';
+                            removeBtn.className = 'remove-button remove-bedroom';
+                            removeBtn.textContent = 'Удалить';
+                            removeBtn.style.display = 'none';
+                            
+                            item.appendChild(formGroup);
+                            item.appendChild(removeBtn);
+                            bedroomsContainer.appendChild(item);
                         }
+                        updateItemLabels(bedroomsContainer, 'bedroom-item', 'Спальня');
 
-                        // Санузлы
+                        // Fill bathrooms using DOM API
                         const bathroomsContainer = document.getElementById('bathroomsContainer');
                         bathroomsContainer.innerHTML = '';
                         let bathroomCount = 0;
@@ -1126,15 +1248,35 @@
                                 bathroomCount++;
                                 const item = document.createElement('div');
                                 item.className = 'bathroom-item item-container';
-                                item.innerHTML = `
-                                    <div class="form-group">
-                                        <label>Санузел #${index + 1}</label>
-                                        <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" value="${bathroom.bathroom_size || ''}" placeholder="Площадь, м²">
-                                    </div>
-                                    <button type="button" class="remove-button remove-bathroom" style="${bathroomCount > 1 ? '' : 'display: none;'}">Удалить</button>
-                                `;
+                                
+                                const formGroup = document.createElement('div');
+                                formGroup.className = 'form-group';
+                                
+                                const label = document.createElement('label');
+                                label.textContent = `Санузел #${index + 1}`;
+                                
+                                const input = document.createElement('input');
+                                input.type = 'number';
+                                input.step = '0.01';
+                                input.className = 'bathroom-size';
+                                input.name = 'bathrooms[]';
+                                input.placeholder = 'Площадь, м²';
+                                input.value = bathroom.bathroom_size || '';
+                                
+                                formGroup.appendChild(label);
+                                formGroup.appendChild(input);
+                                
+                                const removeBtn = document.createElement('button');
+                                removeBtn.type = 'button';
+                                removeBtn.className = 'remove-button remove-bathroom';
+                                removeBtn.textContent = 'Удалить';
+                                removeBtn.style.display = bathroomCount > 1 ? 'inline-block' : 'none';
+                                
+                                item.appendChild(formGroup);
+                                item.appendChild(removeBtn);
                                 bathroomsContainer.appendChild(item);
-                                item.querySelector('.remove-bathroom').addEventListener('click', function() {
+                                
+                                removeBtn.addEventListener('click', function() {
                                     item.remove();
                                     bathroomCount--;
                                     updateItemLabels(bathroomsContainer, 'bathroom-item', 'Санузел');
@@ -1142,53 +1284,114 @@
                             });
                         } else {
                             bathroomCount = 1;
-                            bathroomsContainer.innerHTML = `
-                                <div class="bathroom-item item-container">
-                                    <div class="form-group">
-                                        <label>Санузел #1</label>
-                                        <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" placeholder="Площадь, м²">
-                                    </div>
-                                    <button type="button" class="remove-button remove-bathroom" style="display: none;">Удалить</button>
-                                </div>
-                            `;
+                            const item = document.createElement('div');
+                            item.className = 'bathroom-item item-container';
+                            
+                            const formGroup = document.createElement('div');
+                            formGroup.className = 'form-group';
+                            
+                            const label = document.createElement('label');
+                            label.textContent = 'Санузел #1';
+                            
+                            const input = document.createElement('input');
+                            input.type = 'number';
+                            input.step = '0.01';
+                            input.className = 'bathroom-size';
+                            input.name = 'bathrooms[]';
+                            input.placeholder = 'Площадь, м²';
+                            
+                            formGroup.appendChild(label);
+                            formGroup.appendChild(input);
+                            
+                            const removeBtn = document.createElement('button');
+                            removeBtn.type = 'button';
+                            removeBtn.className = 'remove-button remove-bathroom';
+                            removeBtn.textContent = 'Удалить';
+                            removeBtn.style.display = 'none';
+                            
+                            item.appendChild(formGroup);
+                            item.appendChild(removeBtn);
+                            bathroomsContainer.appendChild(item);
                         }
+                        updateItemLabels(bathroomsContainer, 'bathroom-item', 'Санузел');
 
-                        // Балконы
+                        // Fill balconies using DOM API
                         const balconiesContainer = document.getElementById('balconiesContainer');
-                        balconiesContainer.innerHTML = `
-                            <h3>Балконы</h3>
-                            <div class="balcony-item item-container">
-                                <div class="form-group">
-                                    <label>Балкон #1</label>
-                                    <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
-                                </div>
-                                <button type="button" class="remove-button remove-balcony" style="display: none;">Удалить</button>
-                            </div>
-                        `;
+                        balconiesContainer.innerHTML = '';
                         let balconyCount = 0;
                         if (balconies.length > 0) {
-                            balconiesContainer.innerHTML = '<h3>Балконы</h3>';
                             balconies.forEach((balcony, index) => {
                                 balconyCount++;
                                 const item = document.createElement('div');
                                 item.className = 'balcony-item item-container';
-                                item.innerHTML = `
-                                    <div class="form-group">
-                                        <label>Балкон #${index + 1}</label>
-                                        <input type="number" step="0.01" class="balcony-size" name="balconies[]" value="${balcony.balcony_size || ''}" placeholder="Площадь, м²">
-                                    </div>
-                                    <button type="button" class="remove-button remove-balcony" style="${balconyCount > 1 ? '' : 'display: none;'}">Удалить</button>
-                                `;
+                                
+                                const formGroup = document.createElement('div');
+                                formGroup.className = 'form-group';
+                                
+                                const label = document.createElement('label');
+                                label.textContent = `Балкон #${index + 1}`;
+                                
+                                const input = document.createElement('input');
+                                input.type = 'number';
+                                input.step = '0.01';
+                                input.className = 'balcony-size';
+                                input.name = 'balconies[]';
+                                input.placeholder = 'Площадь, м²';
+                                input.value = balcony.balcony_size || '';
+                                
+                                formGroup.appendChild(label);
+                                formGroup.appendChild(input);
+                                
+                                const removeBtn = document.createElement('button');
+                                removeBtn.type = 'button';
+                                removeBtn.className = 'remove-button remove-balcony';
+                                removeBtn.textContent = 'Удалить';
+                                removeBtn.style.display = balconyCount > 1 ? 'inline-block' : 'none';
+                                
+                                item.appendChild(formGroup);
+                                item.appendChild(removeBtn);
                                 balconiesContainer.appendChild(item);
-                                item.querySelector('.remove-balcony').addEventListener('click', function() {
+                                
+                                removeBtn.addEventListener('click', function() {
                                     item.remove();
                                     balconyCount--;
                                     updateItemLabels(balconiesContainer, 'balcony-item', 'Балкон');
                                 });
                             });
+                        } else if (project.floors === '2') {
+                            balconyCount = 1;
+                            const item = document.createElement('div');
+                            item.className = 'balcony-item item-container';
+                            
+                            const formGroup = document.createElement('div');
+                            formGroup.className = 'form-group';
+                            
+                            const label = document.createElement('label');
+                            label.textContent = 'Балкон #1';
+                            
+                            const input = document.createElement('input');
+                            input.type = 'number';
+                            input.step = '0.01';
+                            input.className = 'balcony-size';
+                            input.name = 'balconies[]';
+                            input.placeholder = 'Площадь, м²';
+                            
+                            formGroup.appendChild(label);
+                            formGroup.appendChild(input);
+                            
+                            const removeBtn = document.createElement('button');
+                            removeBtn.type = 'button';
+                            removeBtn.className = 'remove-button remove-balcony';
+                            removeBtn.textContent = 'Удалить';
+                            removeBtn.style.display = 'none';
+                            
+                            item.appendChild(formGroup);
+                            item.appendChild(removeBtn);
+                            balconiesContainer.appendChild(item);
                         }
+                        updateItemLabels(balconiesContainer, 'balcony-item', 'Балкон');
 
-                        // Инициализация состояния формы
+                        // Update visibility of fields
                         toggleFloorFields();
                         toggleKitchenLivingFields();
                         toggleProjectSections();
@@ -1196,11 +1399,11 @@
                         toggleSaunaArea();
                     })
                     .catch(error => {
-                        document.getElementById('errorMessage').textContent = `Ошибка загрузки данных: ${error.message}`;
                         console.error('Fetch error:', error);
+                        document.getElementById('errorMessage').textContent = 'Ошибка загрузки данных проекта: ' + error.message;
                     });
             } else {
-                // Инициализация состояния формы для нового проекта
+                // Initialize visibility for new project
                 toggleFloorFields();
                 toggleKitchenLivingFields();
                 toggleProjectSections();

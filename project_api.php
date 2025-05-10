@@ -21,6 +21,7 @@ logDebug("project_api.php started");
 
 // Response function
 function respond($success, $message = '', $data = []) {
+    logDebug("Response: success=$success, message=$message, data=" . json_encode($data, JSON_UNESCAPED_UNICODE));
     ob_end_clean();
     echo json_encode(['success' => $success, 'message' => $message, 'data' => $data], JSON_UNESCAPED_UNICODE);
     exit;
@@ -67,10 +68,16 @@ if ($action === 'get') {
             respond(false, 'Project not found');
         }
 
-        // Fetch project parameters
+        // Fetch project parameters (return empty object if no params)
         $stmt = $pdo->prepare("SELECT * FROM project_params WHERE project_id = ?");
         $stmt->execute([$project_id]);
-        $params = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $params = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+            'total_area' => 0, 'sizes' => '', 'square_fund' => 0, 'foundation_shape' => 'Прямоугольный',
+            'square_1fl' => 0, 'square_terrace_1fl' => 0, 'square_2fl' => 0, 'square_terrace_2fl' => 0,
+            'kitchen_living_combined' => 'N', 'square_kitchen_living' => 0, 'square_kitchen' => 0, 'square_living' => 0,
+            'master_bedroom' => 'N', 'sq_master_bedroom' => 0, 'dirt_room' => 0, 'tech_room' => 0,
+            'sauna_room' => 'N', 'sq_sauna_room' => 0
+        ];
 
         // Fetch project sections
         $stmt = $pdo->prepare("SELECT section_code FROM project_sections WHERE project_id = ?");
