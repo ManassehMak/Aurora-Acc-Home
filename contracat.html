@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление проектом - Аврора ДСК</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .drop-zone {
+            border: 2px dashed #3498db;
+            border-radius: 5px;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .drop-zone:hover {
+            background: #eaf2f8;
+        }
+        .drop-zone.active {
+            background: #d4e6f1;
+            border-color: #2980b9;
+        }
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .preview-item {
+            width: 100px;
+            height: 100px;
+            position: relative;
+            border: 1px solid #ddd;
+            overflow: hidden;
+        }
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        .remove-button {
+            background: #e74c3c;
+        }
+        .remove-button:hover {
+            background: #c0392b;
+        }
+        .progress-bar {
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background: #2ecc71;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        .form-col {
+            flex: 1;
+            min-width: 200px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: normal;
+            margin-bottom: 0;
+        }
+        .radio-group input[type="radio"] {
+            width: auto;
+        }
+        .sections-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .section-title {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        .sections-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            align-items: center;
+        }
+        .section-item label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .section-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            cursor: pointer;
+        }
+        .section-item span {
+            font-size: 14px;
+            color: #495057;
+        }
+        .section-item label:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .item-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .form-col {
+                width: 100%;
+            }
+            .sections-container {
+                gap: 15px;
+            }
+            .section-item label {
+                padding: 6px 10px;
+            }
+            .section-item span {
+                font-size: 13px;
+            }
+        }
+        @media (max-width: 480px) {
+            .sections-container {
+                gap: 10px;
+            }
+            .section-item label {
+                flex: 1 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="formTitle">Добавление проекта</h1>
+        <div id="errorMessage" class="error-message"></div>
+        
+        <form id="projectForm" enctype="multipart/form-data">
+            <input type="hidden" name="project_id" id="projectId" value="">
+            <div class="form-row">
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="projectName">Название проекта</label>
+                        <input type="text" id="projectName" name="name" required>
+                    </div>
+                </div>
+                <div class="form-col">
+                    <div class="form-group">
+                        <label>Этажность</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="floors" value="1" checked> 1 этаж</label>
+                            <label><input type="radio" name="floors" value="2"> 2 этажа</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="totalArea">Общая площадь дома, м²</label>
+                        <input type="number" step="0.01" id="totalArea" name="totalArea">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="projectDescription">Описание проекта</label>
+                <textarea id="projectDescription" name="projectDescription" rows="4"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Есть проект?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="has_project" value="Y" checked> Да</label>
+                    <label><input type="radio" name="has_project" value="N"> Нет</label>
+                </div>
+            </div>
+
+            <div id="projectSectionsGroup">
+                <div class="form-group">
+                    <label class="section-title">Разделы проекта:</label>
+                    <div class="sections-container">
+                        <div class="section-item"><label><input type="checkbox" name="project_sections[]" value="АР"><span>АР</span></label></div>
+                        <div class="section-item"><label><input type="checkbox" name="project_sections[]" value="КР"><span>КР</span></label></div>
+                        <div class="section-item"><label><input type="checkbox" name="project_sections[]" value="ОВ"><span>ОВ</span></label></div>
+                        <div class="section-item"><label><input type="checkbox" name="project_sections[]" value="ВК"><span>ВК</span></label></div>
+                        <div class="section-item"><label><input type="checkbox" name="project_sections[]" value="СС"><span>СС</span></label></div>
+                        <div class="section-item"><label><input type="checkbox" name="project_sections[]" value="ЭОМ"><span>ЭОМ</span></label></div>
+                        <div class="section-item"><label><input type="checkbox" name="project_sections[]" value="ПОС"><span>ПОС</span></label></div>
+                    </div>
+                </div>
+            </div>
+            <br>
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="model3DView">Ссылка на 3D-модель</label>
+                        <input type="url" id="model3DView" name="model3DView" placeholder="https://sketchfab.com/models/...">
+                    </div>
+                    <div class="form-group">
+                        <label for="embedCode">Код для встраивания</label>
+                        <textarea id="embedCode" name="embedCode" rows="3" placeholder="Вставьте HTML-код для встраивания"></textarea>
+                    </div>
+                </div>
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="modelSKPFile">Файл модели (.skp)</label>
+                        <input type="file" id="modelSKPFile" name="modelSKPFile" accept=".skp">
+                    </div>
+                    <div class="form-group">
+                        <label for="rdZipFile">Архив РД (.zip, .rar)</label>
+                        <input type="file" id="rdZipFile" name="rdZipFile" accept=".zip,.rar">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Основное изображение проекта</label>
+                <div class="drop-zone" id="mainImageDrop">
+                    <p>Перетащите сюда основное изображение проекта или кликните для выбора</p>
+                    <input type="file" id="mainImageInput" name="mainImageInput" accept="image/*" style="display: none;">
+                </div>
+                <div class="preview-container" id="mainImagePreview"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>Дополнительные изображения</label>
+                <div class="drop-zone" id="additionalImagesDrop">
+                    <p>Перетащите сюда дополнительные изображения или кликните для выбора</p>
+                    <input type="file" id="additionalImagesInput" name="additionalImagesInput" accept="image/*" multiple style="display: none;">
+                </div>
+                <div class="preview-container" id="additionalImagesPreview"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>Файлы проекта (PDF, чертежи)</label>
+                <div class="drop-zone" id="projectFilesDrop">
+                    <p>Перетащите сюда файлы проекта или кликните для выбора</p>
+                    <input type="file" id="projectFilesInput" name="projectFilesInput" accept=".pdf,.dwg,.jpg,.png,.zip,.rar" multiple style="display: none;">
+                </div>
+                <div class="preview-container" id="projectFilesPreview"></div>
+            </div>
+            
+            <h2>Параметры проекта</h2>
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="sizes">Размеры по фундаменту (ДхШ), м</label>
+                        <input type="text" id="sizes" name="sizes" placeholder="Например: 10.5x8.2">
+                    </div>
+                </div>
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="squareFund">Площадь по фундаменту, м²</label>
+                        <input type="number" step="0.01" id="squareFund" name="squareFund">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Конфигурация фундамента</label>
+                <div class="radio-group" style="flex-wrap: wrap;">
+                    <label><input type="radio" name="foundation_shape" value="Прямоугольный" checked> Прямоугольный</label>
+                    <label><input type="radio" name="foundation_shape" value="Фигурный"> Фигурный</label>
+                    <label><input type="radio" name="foundation_shape" value="Г-образный"> Г-образный</label>
+                    <label><input type="radio" name="foundation_shape" value="П-образный"> П-образный</label>
+                    <label><input type="radio" name="foundation_shape" value="Другой"> Другой</label>
+                </div>
+            </div>
+            <hr>
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="square1fl">Площадь 1 этажа, м²</label>
+                        <input type="number" step="0.01" id="square1fl" name="square1fl">
+                    </div>
+                    <div class="form-group">
+                        <label for="squareTerrace1fl">Площадь террас 1 этажа, м²</label>
+                        <input type="number" step="0.01" id="squareTerrace1fl" name="squareTerrace1fl">
+                    </div>
+                </div>
+                <div class="form-col" id="secondFloorParams" style="display: none;">
+                    <div class="form-group">
+                        <label for="square2fl">Площадь 2 этажа, м²</label>
+                        <input type="number" step="0.01" id="square2fl" name="square2fl">
+                    </div>
+                    <div class="form-group">
+                        <label for="squareTerrace2fl">Площадь террас 2 этажа, м²</label>
+                        <input type="number" step="0.01" id="squareTerrace2fl" name="squareTerrace2fl">
+                    </div>
+                </div>
+            </div>
+            <hr>
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <div class="form-group">
+                        <label>Гостиная совмещена с кухней?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="kitchen_living_combined" value="Y" id="kitchenLivingCombinedYes"> Да</label>
+                            <label><input type="radio" name="kitchen_living_combined" value="N" id="kitchenLivingCombinedNo" checked> Нет</label>
+                        </div>
+                    </div>
+                    <div class="form-group" id="combinedKitchenLivingGroup" style="display: none;">
+                        <label for="squareKitchenLiving">Площадь совмещённой гостиной и кухни, м²</label>
+                        <input type="number" step="0.01" id="squareKitchenLiving" name="squareKitchenLiving">
+                    </div>
+                    <div id="separateKitchenLivingGroup">
+                        <div class="form-group">
+                            <label for="squareKitchen">Площадь кухни, м²</label>
+                            <input type="number" step="0.01" id="squareKitchen" name="squareKitchen">
+                        </div>
+                        <div class="form-group">
+                            <label for="squareLiving">Площадь гостиной, м²</label>
+                            <input type="number" step="0.01" id="squareLiving" name="squareLiving">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="masterBedroom">Мастер-спальня</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="master_bedroom" value="N" checked> Нет</label>
+                            <label><input type="radio" name="master_bedroom" value="Y"> Да</label>
+                        </div>
+                    </div>
+                    <div class="form-group" id="masterBedroomAreaGroup" style="display: none;">
+                        <label for="sqMasterBedroom">Площадь мастер-спальни, м²</label>
+                        <input type="number" step="0.01" id="sqMasterBedroom" name="sqMasterBedroom">
+                    </div>
+                </div>
+            </div>
+            <hr>
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="dirtRoom">Площадь прихожей, м²</label>
+                        <input type="number" step="0.01" id="dirtRoom" name="dirtRoom">
+                    </div>
+                </div>
+                <div class="form-col">
+                    <div class="form-group">
+                        <label for="techRoom">Площадь технического помещения, м²</label>
+                        <input type="number" step="0.01" id="techRoom" name="techRoom">
+                    </div>
+                </div>
+                <div class="form-col">
+                    <div class="form-group">
+                        <label>Сауна</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="sauna_room" value="N" checked> Нет</label>
+                            <label><input type="radio" name="sauna_room" value="Y"> Да</label>
+                        </div>
+                    </div>
+                    <div class="form-group" id="saunaAreaGroup" style="display: none;">
+                        <label for="sqSaunaRoom">Площадь сауны, м²</label>
+                        <input type="number" step="0.01" id="sqSaunaRoom" name="sqSaunaRoom">
+                    </div>
+                </div>
+            </div>
+            <hr>
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <h3>Спальни</h3>
+                    <div id="bedroomsContainer">
+                        <div class="bedroom-item item-container">
+                            <div class="form-group">
+                                <label>Спальня #1</label>
+                                <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" placeholder="Площадь, м²">
+                            </div>
+                            <button type="button" class="remove-button remove-bedroom" style="display: none;">Удалить</button>
+                        </div>
+                    </div>
+                    <button type="button" id="addBedroom">Добавить спальню</button>
+                </div>
+                <div class="form-col">
+                    <h3>Санузлы</h3>
+                    <div id="bathroomsContainer">
+                        <div class="bathroom-item item-container">
+                            <div class="form-group">
+                                <label>Санузел #1</label>
+                                <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" placeholder="Площадь, м²">
+                            </div>
+                            <button type="button" class="remove-button remove-bathroom" style="display: none;">Удалить</button>
+                        </div>
+                    </div>
+                    <button type="button" id="addBathroom">Добавить санузел</button>
+                </div>
+                <div class="form-col">
+                    <div id="balconiesContainer" style="display: none;">
+                        <h3>Балконы</h3>
+                        <div class="balcony-item item-container">
+                            <div class="form-group">
+                                <label>Балкон #1</label>
+                                <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
+                            </div>
+                            <button type="button" class="remove-button remove-balcony" style="display: none;">Удалить</button>
+                        </div>
+                    </div>
+                    <button type="button" id="addBalcony" style="display: none;">Добавить балкон</button>
+                </div>
+            </div>
+            <br><br>
+            <hr>
+            
+            <div class="form-group">
+                <label for="projectNotes">Примечания и особенности</label>
+                <textarea id="projectNotes" name="projectNotes" rows="4"></textarea>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress" id="uploadProgress"></div>
+            </div>
+            <br>
+            <button type="submit" id="submitBtn">Сохранить проект</button>
+        </form>
+    </div>
+
+    <script>
+        function toggleFloorFields() {
+            const floors = document.querySelector('input[name="floors"]:checked').value;
+            const secondFloorFields = document.getElementById('secondFloorParams');
+            const balconiesContainer = document.getElementById('balconiesContainer');
+            const addBalconyBtn = document.getElementById('addBalcony');
+            if (floors === '1') {
+                secondFloorFields.style.display = 'none';
+                balconiesContainer.style.display = 'none';
+                addBalconyBtn.style.display = 'none';
+                document.getElementById('square2fl').value = '';
+                document.getElementById('squareTerrace2fl').value = '';
+            } else {
+                secondFloorFields.style.display = 'block';
+                balconiesContainer.style.display = 'block';
+                addBalconyBtn.style.display = 'inline-block';
+            }
+        }
+
+        function toggleKitchenLivingFields() {
+            const isCombined = document.querySelector('input[name="kitchen_living_combined"]:checked').value === 'Y';
+            document.getElementById('combinedKitchenLivingGroup').style.display = isCombined ? 'block' : 'none';
+            document.getElementById('separateKitchenLivingGroup').style.display = isCombined ? 'none' : 'block';
+            if (isCombined) {
+                document.getElementById('squareKitchen').value = '';
+                document.getElementById('squareLiving').value = '';
+            } else {
+                document.getElementById('squareKitchenLiving').value = '';
+            }
+        }
+
+        function toggleProjectSections() {
+            const hasProject = document.querySelector('input[name="has_project"]:checked').value === 'Y';
+            document.getElementById('projectSectionsGroup').style.display = hasProject ? 'block' : 'none';
+            if (!hasProject) {
+                document.querySelectorAll('input[name="project_sections[]"]').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            }
+        }
+
+        function toggleMasterBedroomArea() {
+            const hasMasterBedroom = document.querySelector('input[name="master_bedroom"]:checked').value === 'Y';
+            document.getElementById('masterBedroomAreaGroup').style.display = hasMasterBedroom ? 'block' : 'none';
+            if (!hasMasterBedroom) {
+                document.getElementById('sqMasterBedroom').value = '';
+            }
+        }
+
+        function toggleSaunaArea() {
+            const hasSauna = document.querySelector('input[name="sauna_room"]:checked').value === 'Y';
+            document.getElementById('saunaAreaGroup').style.display = hasSauna ? 'block' : 'none';
+            if (!hasSauna) {
+                document.getElementById('sqSaunaRoom').value = '';
+            }
+        }
+
+        function updateItemLabels(container, itemClass, labelPrefix) {
+            const items = container.querySelectorAll(`.${itemClass}`);
+            items.forEach((item, index) => {
+                const label = item.querySelector('label');
+                label.textContent = `${labelPrefix} #${index + 1}`;
+                const removeBtn = item.querySelector('.remove-button');
+                removeBtn.style.display = items.length > 1 ? 'inline-block' : 'none';
+            });
+        }
+
+        function setupDropZone(dropZone, fileInput, previewContainer, multiple, accept) {
+            dropZone.addEventListener('click', () => fileInput.click());
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+            function highlight() {
+                dropZone.classList.add('active');
+            }
+            function unhighlight() {
+                dropZone.classList.remove('active');
+            }
+            dropZone.addEventListener('drop', handleDrop, false);
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+            fileInput.addEventListener('change', function() {
+                handleFiles(this.files);
+            });
+            function handleFiles(files) {
+                if (!multiple && files.length > 1) {
+                    alert('Пожалуйста, выберите только один файл');
+                    return;
+                }
+                const acceptRegex = new RegExp(`\\.(${accept})$`, 'i');
+                [...files].forEach(file => {
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    if (!acceptRegex.test(file.name) && !file.type.match(accept)) {
+                        alert(`Недопустимый тип файла: ${file.name}`);
+                        return;
+                    }
+                    if (file.size > 120 * 1024 * 1024) {
+                        alert(`Файл ${file.name} слишком большой. Максимальный размер: 120 МБ.`);
+                        return;
+                    }
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'preview-item';
+                    if (file.type.match('image.*')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            previewItem.appendChild(img);
+                            const removeBtn = document.createElement('button');
+                            removeBtn.className = 'remove-btn';
+                            removeBtn.innerHTML = '×';
+                            removeBtn.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                previewItem.remove();
+                                const dataTransfer = new DataTransfer();
+                                [...fileInput.files].forEach(f => {
+                                    if (f !== file) dataTransfer.items.add(f);
+                                });
+                                fileInput.files = dataTransfer.files;
+                            });
+                            previewItem.appendChild(removeBtn);
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        previewItem.innerHTML = `
+                            <div style="padding: 10px; text-align: center;">
+                                <div style="font-size: 40px;">📄</div>
+                                <div style="font-size: 12px; word-break: break-all;">${file.name}</div>
+                            </div>
+                            <button class="remove-btn">×</button>
+                        `;
+                        previewItem.querySelector('.remove-btn').addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            previewItem.remove();
+                            const dataTransfer = new DataTransfer();
+                            [...fileInput.files].forEach(f => {
+                                if (f !== file) dataTransfer.items.add(f);
+                            });
+                            fileInput.files = dataTransfer.files;
+                        });
+                    }
+                    previewContainer.appendChild(previewItem);
+                    const dataTransfer = new DataTransfer();
+                    [...fileInput.files, file].forEach(f => dataTransfer.items.add(f));
+                    fileInput.files = dataTransfer.files;
+                });
+            }
+        }
+
+        function displayExistingImage(path, previewContainer, isImage) {
+            if (!path) return;
+            const previewItem = document.createElement('div');
+            previewItem.className = 'preview-item';
+            if (isImage) {
+                const img = document.createElement('img');
+                img.src = path;
+                previewItem.appendChild(img);
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.innerHTML = '×';
+                removeBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    previewItem.remove();
+                });
+                previewItem.appendChild(removeBtn);
+            } else {
+                const fileName = path.split('/').pop();
+                previewItem.innerHTML = `
+                    <div style="padding: 10px; text-align: center;">
+                        <div style="font-size: 40px;">📄</div>
+                        <div style="font-size: 12px; word-break: break-all;">${fileName}</div>
+                    </div>
+                    <button class="remove-btn">×</button>
+                `;
+                previewItem.querySelector('.remove-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    previewItem.remove();
+                });
+            }
+            previewContainer.appendChild(previewItem);
+        }
+
+        function uploadProject() {
+            const submitBtn = document.getElementById('submitBtn');
+            const progressBar = document.getElementById('uploadProgress');
+            const errorMessage = document.getElementById('errorMessage');
+            submitBtn.disabled = true;
+            progressBar.style.width = '0%';
+            errorMessage.textContent = '';
+
+            const form = document.getElementById('projectForm');
+            const formData = new FormData();
+
+            // Явное добавление всех полей формы
+            const inputs = form.querySelectorAll('input:not([type="file"]), textarea, select');
+            inputs.forEach(input => {
+                if (input.type === 'radio' || input.type === 'checkbox') {
+                    if (input.checked) {
+                        formData.append(input.name, input.value);
+                    }
+                } else if (input.name) {
+                    formData.append(input.name, input.value || '');
+                }
+            });
+
+            // Добавление множественных полей
+            const bedrooms = form.querySelectorAll('input[name="bedrooms[]"]');
+            bedrooms.forEach(input => {
+                if (input.value) {
+                    formData.append('bedrooms[]', input.value);
+                }
+            });
+
+            const bathrooms = form.querySelectorAll('input[name="bathrooms[]"]');
+            bathrooms.forEach(input => {
+                if (input.value) {
+                    formData.append('bathrooms[]', input.value);
+                }
+            });
+
+            const balconies = form.querySelectorAll('input[name="balconies[]"]');
+            balconies.forEach(input => {
+                if (input.value) {
+                    formData.append('balconies[]', input.value);
+                }
+            });
+
+            // Уникальные project_sections
+            const sections = [...new Set(
+                Array.from(form.querySelectorAll('input[name="project_sections[]"]:checked'))
+                    .map(input => input.value)
+            )];
+            sections.forEach(value => {
+                formData.append('project_sections[]', value);
+            });
+
+            // Добавление файлов
+            const mainImageInput = document.getElementById('mainImageInput');
+            if (mainImageInput.files[0]) {
+                formData.append('mainImageInput', mainImageInput.files[0]);
+            }
+
+            const additionalImagesInput = document.getElementById('additionalImagesInput');
+            for (let i = 0; i < additionalImagesInput.files.length; i++) {
+                formData.append('additionalImagesInput[]', additionalImagesInput.files[i]);
+            }
+
+            const projectFilesInput = document.getElementById('projectFilesInput');
+            for (let i = 0; i < projectFilesInput.files.length; i++) {
+                formData.append('projectFilesInput[]', projectFilesInput.files[i]);
+            }
+
+            const modelSKPFile = document.getElementById('modelSKPFile');
+            if (modelSKPFile.files[0]) {
+                formData.append('modelSKPFile', modelSKPFile.files[0]);
+            }
+
+            const rdZipFile = document.getElementById('rdZipFile');
+            if (rdZipFile.files[0]) {
+                if (rdZipFile.files[0].size > 120 * 1024 * 1024) {
+                    errorMessage.textContent = 'Файл РД слишком большой. Максимальный размер: 120 МБ.';
+                    submitBtn.disabled = false;
+                    return;
+                }
+                formData.append('rdZipFile', rdZipFile.files[0]);
+                console.log('rdZipFile added to FormData:', rdZipFile.files[0].name, rdZipFile.files[0].size);
+            } else {
+                console.log('rdZipFile not selected');
+            }
+
+            // Отладка: логируем содержимое FormData
+            console.log('FormData entries:');
+            for (let [key, value] of formData.entries()) {
+                console.log(`${key}: ${value instanceof File ? value.name + ' (' + value.size + ' bytes)' : value}`);
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'project_api.php?action=save', true);
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percentComplete + '%';
+                }
+            };
+            xhr.onload = function() {
+                submitBtn.disabled = false;
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        alert('Проект успешно сохранен!');
+                        window.location.href = 'project_list.php';
+                    } else {
+                        errorMessage.textContent = 'Ошибка сохранения: ' + response.message;
+                    }
+                } catch (e) {
+                    errorMessage.textContent = 'Ошибка при обработке ответа сервера: ' + e.message;
+                    console.error('Response text:', xhr.responseText);
+                }
+            };
+            xhr.onerror = function() {
+                errorMessage.textContent = 'Ошибка сети при отправке данных';
+                submitBtn.disabled = false;
+            };
+            xhr.send(formData);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize drop zones
+            setupDropZone(
+                document.getElementById('mainImageDrop'),
+                document.getElementById('mainImageInput'),
+                document.getElementById('mainImagePreview'),
+                false,
+                'jpg|jpeg|png'
+            );
+            setupDropZone(
+                document.getElementById('additionalImagesDrop'),
+                document.getElementById('additionalImagesInput'),
+                document.getElementById('additionalImagesPreview'),
+                true,
+                'jpg|jpeg|png'
+            );
+            setupDropZone(
+                document.getElementById('projectFilesDrop'),
+                document.getElementById('projectFilesInput'),
+                document.getElementById('projectFilesPreview'),
+                true,
+                'pdf|dwg|jpg|jpeg|png|zip|rar'
+            );
+
+            // Логирование выбора rdZipFile
+			document.getElementById('rdZipFile').addEventListener('change', function() {
+				if (this.files[0]) {
+					const file = this.files[0];
+					const validTypes = ['application/zip', 'application/x-rar-compressed'];
+					if (!validTypes.includes(file.type) || file.size > 120 * 1024 * 1024) {
+						alert('Недопустимый файл. Допустимые форматы: .zip, .rar. Максимальный размер: 120 МБ.');
+						this.value = '';
+					}
+				}
+			});
+
+            // Dynamic field management
+            let bedroomCount = 1;
+            document.getElementById('addBedroom').addEventListener('click', function() {
+                bedroomCount++;
+                const container = document.getElementById('bedroomsContainer');
+                const newItem = document.createElement('div');
+                newItem.className = 'bedroom-item item-container';
+                newItem.innerHTML = `
+                    <div class="form-group">
+                        <label>Спальня #${bedroomCount}</label>
+                        <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" placeholder="Площадь, м²">
+                    </div>
+                    <button type="button" class="remove-button remove-bedroom">Удалить</button>
+                `;
+                container.appendChild(newItem);
+                updateItemLabels(container, 'bedroom-item', 'Спальня');
+                newItem.querySelector('.remove-bedroom').addEventListener('click', function() {
+                    newItem.remove();
+                    bedroomCount--;
+                    updateItemLabels(container, 'bedroom-item', 'Спальня');
+                });
+            });
+
+            let bathroomCount = 1;
+            document.getElementById('addBathroom').addEventListener('click', function() {
+                bathroomCount++;
+                const container = document.getElementById('bathroomsContainer');
+                const newItem = document.createElement('div');
+                newItem.className = 'bathroom-item item-container';
+                newItem.innerHTML = `
+                    <div class="form-group">
+                        <label>Санузел #${bathroomCount}</label>
+                        <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" placeholder="Площадь, м²">
+                    </div>
+                    <button type="button" class="remove-button remove-bathroom">Удалить</button>
+                `;
+                container.appendChild(newItem);
+                updateItemLabels(container, 'bathroom-item', 'Санузел');
+                newItem.querySelector('.remove-bathroom').addEventListener('click', function() {
+                    newItem.remove();
+                    bathroomCount--;
+                    updateItemLabels(container, 'bathroom-item', 'Санузел');
+                });
+            });
+
+            let balconyCount = 1;
+            document.getElementById('addBalcony').addEventListener('click', function() {
+                balconyCount++;
+                const container = document.getElementById('balconiesContainer');
+                const newItem = document.createElement('div');
+                newItem.className = 'balcony-item item-container';
+                newItem.innerHTML = `
+                    <div class="form-group">
+                        <label>Балкон #${balconyCount}</label>
+                        <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
+                    </div>
+                    <button type="button" class="remove-button remove-balcony">Удалить</button>
+                `;
+                container.appendChild(newItem);
+                updateItemLabels(container, 'balcony-item', 'Балкон');
+                newItem.querySelector('.remove-balcony').addEventListener('click', function() {
+                    newItem.remove();
+                    balconyCount--;
+                    updateItemLabels(container, 'balcony-item', 'Балкон');
+                });
+            });
+
+            // Event listeners for dynamic fields
+            document.querySelectorAll('input[name="floors"]').forEach(radio => {
+                radio.addEventListener('change', toggleFloorFields);
+            });
+            document.querySelectorAll('input[name="kitchen_living_combined"]').forEach(radio => {
+                radio.addEventListener('change', toggleKitchenLivingFields);
+            });
+            document.querySelectorAll('input[name="has_project"]').forEach(radio => {
+                radio.addEventListener('change', toggleProjectSections);
+            });
+            document.querySelectorAll('input[name="master_bedroom"]').forEach(radio => {
+                radio.addEventListener('change', toggleMasterBedroomArea);
+            });
+            document.querySelectorAll('input[name="sauna_room"]').forEach(radio => {
+                radio.addEventListener('change', toggleSaunaArea);
+            });
+
+            // Form submission with enhanced protection
+            let isSubmitting = false;
+            document.getElementById('projectForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (isSubmitting) {
+                    console.log('Форма уже отправляется, игнорируем повторную отправку');
+                    return;
+                }
+                if (!document.getElementById('projectName').value.trim()) {
+                    document.getElementById('errorMessage').textContent = 'Название проекта обязательно';
+                    return;
+                }
+                if (confirm('Сохранить изменения?')) {
+                    isSubmitting = true;
+                    document.getElementById('submitBtn').disabled = true;
+                    uploadProject();
+                }
+            });
+
+            // Reset isSubmitting on page unload to prevent lock
+            window.addEventListener('beforeunload', function() {
+                isSubmitting = false;
+            });
+
+            // Load project data for editing
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('id');
+            if (projectId) {
+                document.getElementById('projectId').value = projectId;
+                document.getElementById('formTitle').textContent = 'Редактирование проекта';
+                console.log('Fetching project data for ID:', projectId);
+                fetch(`project_api.php?action=get&id=${projectId}`)
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        console.log('Response headers:', [...response.headers.entries()]);
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(`HTTP ошибка: ${response.status}, Response: ${text}`);
+                            });
+                        }
+                        return response.text().then(text => {
+                            console.log('Raw response:', text);
+                            try {
+                                return JSON.parse(text);
+                            } catch (e) {
+                                throw new Error(`Ошибка парсинга JSON: ${e.message}, Raw response: ${text}`);
+                            }
+                        });
+                    })
+                    .then(data => {
+                        console.log('Parsed data:', data);
+                        const errorMessage = document.getElementById('errorMessage');
+                        if (!data.success) {
+                            errorMessage.textContent = `Ошибка загрузки данных: ${data.message}`;
+                            return;
+                        }
+                        if (!data.project) {
+                            errorMessage.textContent = 'Проект не найден';
+                            return;
+                        }
+
+                        // Заполнение полей формы
+                        const project = data.project;
+                        const params = data.params;
+                        document.getElementById('projectName').value = project.name || '';
+                        document.getElementById('projectDescription').value = project.description || '';
+                        document.querySelector(`input[name="floors"][value="${project.floors}"]`).checked = true;
+                        document.getElementById('totalArea').value = params.total_area || '';
+                        document.querySelector(`input[name="has_project"][value="${project.has_project || 'Y'}"]`).checked = true;
+                        document.getElementById('model3DView').value = project.model_3d_view || '';
+                        document.getElementById('embedCode').value = project.embed_code || '';
+                        document.getElementById('projectNotes').value = project.notes || '';
+
+                        // Разделы проекта
+                        data.sections.forEach(section => {
+                            const checkbox = document.querySelector(`input[name="project_sections[]"][value="${section}"]`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+
+                        // Отображение существующих изображений
+                        if (project.main_pic) {
+                            displayExistingImage(project.main_pic, document.getElementById('mainImagePreview'), true);
+                        }
+                        data.images.forEach(image => {
+                            displayExistingImage(image.image_path, document.getElementById('additionalImagesPreview'), true);
+                        });
+                        data.files.forEach(file => {
+                            displayExistingImage(file.file_path, document.getElementById('projectFilesPreview'), false);
+                        });
+
+                        // Параметры проекта
+                        document.getElementById('sizes').value = params.sizes || '';
+                        document.getElementById('squareFund').value = params.square_fund || '';
+                        document.querySelector(`input[name="foundation_shape"][value="${params.foundation_shape || 'Прямоугольный'}"]`).checked = true;
+                        document.getElementById('square1fl').value = params.square_1fl || '';
+                        document.getElementById('squareTerrace1fl').value = params.square_terrace_1fl || '';
+                        document.getElementById('square2fl').value = params.square_2fl || '';
+                        document.getElementById('squareTerrace2fl').value = params.square_terrace_2fl || '';
+                        document.querySelector(`input[name="kitchen_living_combined"][value="${params.kitchen_living_combined || 'N'}"]`).checked = true;
+                        document.getElementById('squareKitchenLiving').value = params.square_kitchen_living || '';
+                        document.getElementById('squareKitchen').value = params.square_kitchen || '';
+                        document.getElementById('squareLiving').value = params.square_living || '';
+                        document.querySelector(`input[name="master_bedroom"][value="${params.master_bedroom || 'N'}"]`).checked = true;
+                        document.getElementById('sqMasterBedroom').value = params.sq_master_bedroom || '';
+                        document.getElementById('dirtRoom').value = params.dirt_room || '';
+                        document.getElementById('techRoom').value = params.tech_room || '';
+                        document.querySelector(`input[name="sauna_room"][value="${params.sauna_room || 'N'}"]`).checked = true;
+                        document.getElementById('sqSaunaRoom').value = params.sq_sauna_room || '';
+
+                        // Спальни
+                        const bedroomsContainer = document.getElementById('bedroomsContainer');
+                        bedroomsContainer.innerHTML = '';
+                        let bedroomCount = 0;
+                        data.bedrooms.forEach((bedroom, index) => {
+                            bedroomCount++;
+                            const item = document.createElement('div');
+                            item.className = 'bedroom-item item-container';
+                            item.innerHTML = `
+                                <div class="form-group">
+                                    <label>Спальня #${index + 1}</label>
+                                    <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" value="${bedroom.bedroom_size || ''}" placeholder="Площадь, м²">
+                                </div>
+                                <button type="button" class="remove-button remove-bedroom" style="${bedroomCount > 1 ? '' : 'display: none;'}">Удалить</button>
+                            `;
+                            bedroomsContainer.appendChild(item);
+                            item.querySelector('.remove-bedroom').addEventListener('click', function() {
+                                item.remove();
+                                bedroomCount--;
+                                updateItemLabels(bedroomsContainer, 'bedroom-item', 'Спальня');
+                            });
+                        });
+                        if (bedroomCount === 0) {
+                            bedroomCount = 1;
+                            bedroomsContainer.innerHTML = `
+                                <div class="bedroom-item item-container">
+                                    <div class="form-group">
+                                        <label>Спальня #1</label>
+                                        <input type="number" step="0.01" class="bedroom-size" name="bedrooms[]" placeholder="Площадь, м²">
+                                    </div>
+                                    <button type="button" class="remove-button remove-bedroom" style="display: none;">Удалить</button>
+                                </div>
+                            `;
+                        }
+
+                        // Санузлы
+                        const bathroomsContainer = document.getElementById('bathroomsContainer');
+                        bathroomsContainer.innerHTML = '';
+                        let bathroomCount = 0;
+                        data.bathrooms.forEach((bathroom, index) => {
+                            bathroomCount++;
+                            const item = document.createElement('div');
+                            item.className = 'bathroom-item item-container';
+                            item.innerHTML = `
+                                <div class="form-group">
+                                    <label>Санузел #${index + 1}</label>
+                                    <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" value="${bathroom.bathroom_size || ''}" placeholder="Площадь, м²">
+                                </div>
+                                <button type="button" class="remove-button remove-bathroom" style="${bathroomCount > 1 ? '' : 'display: none;'}">Удалить</button>
+                            `;
+                            bathroomsContainer.appendChild(item);
+                            item.querySelector('.remove-bathroom').addEventListener('click', function() {
+                                item.remove();
+                                bathroomCount--;
+                                updateItemLabels(bathroomsContainer, 'bathroom-item', 'Санузел');
+                            });
+                        });
+                        if (bathroomCount === 0) {
+                            bathroomCount = 1;
+                            bathroomsContainer.innerHTML = `
+                                <div class="bathroom-item item-container">
+                                    <div class="form-group">
+                                        <label>Санузел #1</label>
+                                        <input type="number" step="0.01" class="bathroom-size" name="bathrooms[]" placeholder="Площадь, м²">
+                                    </div>
+                                    <button type="button" class="remove-button remove-bathroom" style="display: none;">Удалить</button>
+                                </div>
+                            `;
+                        }
+
+                        // Балконы
+                        const balconiesContainer = document.getElementById('balconiesContainer');
+                        balconiesContainer.innerHTML = `
+                            <h3>Балконы</h3>
+                            <div class="balcony-item item-container">
+                                <div class="form-group">
+                                    <label>Балкон #1</label>
+                                    <input type="number" step="0.01" class="balcony-size" name="balconies[]" placeholder="Площадь, м²">
+                                </div>
+                                <button type="button" class="remove-button remove-balcony" style="display: none;">Удалить</button>
+                            </div>
+                        `;
+                        let balconyCount = 0;
+                        data.balconies.forEach((balcony, index) => {
+                            balconyCount++;
+                            const item = document.createElement('div');
+                            item.className = 'balcony-item item-container';
+                            item.innerHTML = `
+                                <div class="form-group">
+                                    <label>Балкон #${index + 1}</label>
+                                    <input type="number" step="0.01" class="balcony-size" name="balconies[]" value="${balcony.balcony_size || ''}" placeholder="Площадь, м²">
+                                </div>
+                                <button type="button" class="remove-button remove-balcony" style="${balconyCount > 1 ? '' : 'display: none;'}">Удалить</button>
+                            `;
+                            balconiesContainer.appendChild(item);
+                            item.querySelector('.remove-balcony').addEventListener('click', function() {
+                                item.remove();
+                                balconyCount--;
+                                updateItemLabels(balconiesContainer, 'balcony-item', 'Балкон');
+                            });
+                        });
+                        if (balconyCount === 0) {
+                            balconyCount = 1;
+                        }
+
+                        // Инициализация состояния формы
+                        toggleFloorFields();
+                        toggleKitchenLivingFields();
+                        toggleProjectSections();
+                        toggleMasterBedroomArea();
+                        toggleSaunaArea();
+                    })
+                    .catch(error => {
+                        document.getElementById('errorMessage').textContent = `Ошибка загрузки данных: ${error.message}`;
+                        console.error('Fetch error:', error);
+                    });
+            } else {
+                // Инициализация состояния формы для нового проекта
+                toggleFloorFields();
+                toggleKitchenLivingFields();
+                toggleProjectSections();
+                toggleMasterBedroomArea();
+                toggleSaunaArea();
+            }
+        });
+    </script>
+</body>
+</html>

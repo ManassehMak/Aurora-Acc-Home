@@ -1,28 +1,39 @@
 <?php
+// Start output buffering
 ob_start();
+
+// Set JSON content type
 header('Content-Type: application/json; charset=utf-8');
+
+// Disable error display
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+error_reporting(E_ALL);
+
+// Include authentication
 require_once 'auth.php';
 
+// Debug logging function
 function logDebug($message) {
     file_put_contents('debug_post.log', date('Y-m-d H:i:s') . " - $message\n", FILE_APPEND);
 }
 logDebug("project_api.php started");
 
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
-error_reporting(E_ALL);
-
+// Response function
 function respond($success, $message = '', $data = []) {
     ob_end_clean();
     echo json_encode(['success' => $success, 'message' => $message, 'data' => $data], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
+// Get action
 $action = $_GET['action'] ?? '';
 logDebug("Action requested: $action");
 
 if ($action === 'save') {
     restrictAccess(['admin', 'manager', 'external_user']);
+
+    // Check if form data is received
     if (empty($_POST) && empty($_FILES)) {
         logDebug("Empty POST and FILES received");
         respond(false, 'Empty request, no form data received');
@@ -31,6 +42,7 @@ if ($action === 'save') {
     logDebug("POST: " . print_r($_POST, true));
     logDebug("FILES: " . print_r($_FILES, true));
 
+    // Extract form data
     $project_id = isset($_POST['project_id']) && !empty($_POST['project_id']) ? intval($_POST['project_id']) : null;
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['projectDescription'] ?? '');
@@ -39,32 +51,33 @@ if ($action === 'save') {
     $model_3d_view = trim($_POST['model3DView'] ?? '');
     $embed_code = trim($_POST['embedCode'] ?? '');
     $notes = trim($_POST['projectNotes'] ?? '');
-    $custom_fields = json_decode($_POST['customFields'] ?? '{}', true);
-    $total_area = floatval($_POST['totalArea'] ?? null);
+    $custom_fields = json_decode($_POST['customFields'] ?? '{}', true) ?: [];
+    $total_area = floatval($_POST['totalArea'] ?? 0);
     $sizes = trim($_POST['sizes'] ?? '');
-    $square_fund = floatval($_POST['squareFund'] ?? null);
-    $foundation_shape = trim($_POST['foundation_shape'] ?? '');
-    $square_1fl = floatval($_POST['square1fl'] ?? null);
-    $square_terrace_1fl = floatval($_POST['squareTerrace1fl'] ?? null);
-    $square_2fl = floatval($_POST['square2fl'] ?? null);
-    $square_terrace_2fl = floatval($_POST['squareTerrace2fl'] ?? null);
+    $square_fund = floatval($_POST['squareFund'] ?? 0);
+    $foundation_shape = trim($_POST['foundation_shape'] ?? 'Прямоугольный');
+    $square_1fl = floatval($_POST['square1fl'] ?? 0);
+    $square_terrace_1fl = floatval($_POST['squareTerrace1fl'] ?? 0);
+    $square_2fl = floatval($_POST['square2fl'] ?? 0);
+    $square_terrace_2fl = floatval($_POST['squareTerrace2fl'] ?? 0);
     $kitchen_living_combined = $_POST['kitchen_living_combined'] ?? 'N';
-    $square_kitchen_living = floatval($_POST['squareKitchenLiving'] ?? null);
-    $square_kitchen = floatval($_POST['squareKitchen'] ?? null);
-    $square_living = floatval($_POST['squareLiving'] ?? null);
+    $square_kitchen_living = floatval($_POST['squareKitchenLiving'] ?? 0);
+    $square_kitchen = floatval($_POST['squareKitchen'] ?? 0);
+    $square_living = floatval($_POST['squareLiving'] ?? 0);
     $master_bedroom = $_POST['master_bedroom'] ?? 'N';
-    $sq_master_bedroom = floatval($_POST['sqMasterBedroom'] ?? null);
-    $dirt_room = floatval($_POST['dirtRoom'] ?? null);
-    $tech_room = floatval($_POST['techRoom'] ?? null);
+    $sq_master_bedroom = floatval($_POST['sqMasterBedroom'] ?? 0);
+    $dirt_room = floatval($_POST['dirtRoom'] ?? 0);
+    $tech_room = floatval($_POST['techRoom'] ?? 0);
     $sauna_room = $_POST['sauna_room'] ?? 'N';
-    $sq_sauna_room = floatval($_POST['sqSaunaRoom'] ?? null);
-    $custom_params = json_decode($_POST['customParams'] ?? '{}', true);
+    $sq_sauna_room = floatval($_POST['sqSaunaRoom'] ?? 0);
+    $custom_params = json_decode($_POST['customParams'] ?? '{}', true) ?: [];
     $bedrooms = array_filter($_POST['bedrooms'] ?? [], function($value) { return $value !== ''; });
     $bathrooms = array_filter($_POST['bathrooms'] ?? [], function($value) { return $value !== ''; });
     $balconies = array_filter($_POST['balconies'] ?? [], function($value) { return $value !== ''; });
     $project_sections = array_unique($_POST['project_sections'] ?? []);
     $tags = array_filter($_POST['tags'] ?? [], function($value) { return trim($value) !== ''; });
 
+    // Validate required fields
     if (empty($name)) {
         respond(false, 'Project name is required');
     }
@@ -72,6 +85,7 @@ if ($action === 'save') {
     try {
         $pdo->beginTransaction();
 
+        // Save or update project
         if ($project_id) {
             $stmt = $pdo->prepare("UPDATE projects SET name = ?, description = ?, floors = ?, has_project = ?, model_3d_view = ?, embed_code = ?, notes = ?, custom_fields = ? WHERE id = ?");
             $stmt->execute([$name, $description, $floors, $has_project, $model_3d_view, $embed_code, $notes, json_encode($custom_fields), $project_id]);
@@ -146,9 +160,11 @@ if ($action === 'save') {
         }
 
         // Handle file uploads
-        $upload_dir = 'Uploads/' . $name . '/';
+        $upload_dir = 'Uploads/' . preg_replace('/[^a-zA-Z0-9]/', '_', $name) . '/';
         if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0775, true);
+            if (!mkdir($upload_dir, 0775, true)) {
+                throw new Exception("Failed to create upload directory: $upload_dir");
+            }
         }
 
         // Main image
@@ -158,10 +174,13 @@ if ($action === 'save') {
                 $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
                 $filename = uniqid() . '_main.' . $ext;
                 $destination = $upload_dir . $filename;
-                if (move_uploaded_file($file['tmp_name'], $destination)) {
-                    $stmt = $pdo->prepare("UPDATE projects SET main_pic = ? WHERE id = ?");
-                    $stmt->execute([$destination, $project_id]);
+                if (!move_uploaded_file($file['tmp_name'], $destination)) {
+                    throw new Exception("Failed to move main image to $destination");
                 }
+                $stmt = $pdo->prepare("UPDATE projects SET main_pic = ? WHERE id = ?");
+                $stmt->execute([$destination, $project_id]);
+            } else {
+                logDebug("Invalid main image: type={$file['type']}, size={$file['size']}");
             }
         }
 
@@ -179,10 +198,13 @@ if ($action === 'save') {
                         $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
                         $filename = uniqid() . '_image.' . $ext;
                         $destination = $upload_dir . $filename;
-                        if (move_uploaded_file($file['tmp_name'], $destination)) {
-                            $stmt = $pdo->prepare("INSERT INTO project_images (project_id, image_path) VALUES (?, ?)");
-                            $stmt->execute([$project_id, $destination]);
+                        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+                            throw new Exception("Failed to move additional image to $destination");
                         }
+                        $stmt = $pdo->prepare("INSERT INTO project_images (project_id, image_path) VALUES (?, ?)");
+                        $stmt->execute([$project_id, $destination]);
+                    } else {
+                        logDebug("Invalid additional image: type={$file['type']}, size={$file['size']}");
                     }
                 }
             }
@@ -202,12 +224,48 @@ if ($action === 'save') {
                         $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
                         $filename = uniqid() . '_file.' . $ext;
                         $destination = $upload_dir . $filename;
-                        if (move_uploaded_file($file['tmp_name'], $destination)) {
-                            $stmt = $pdo->prepare("INSERT INTO project_files (project_id, file_path, file_type, file_name, file_size) VALUES (?, ?, ?, ?, ?)");
-                            $stmt->execute([$project_id, $destination, $ext === 'pdf' ? 'pdf' : 'other', $name, $file['size']]);
+                        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+                            throw new Exception("Failed to move project file to $destination");
                         }
+                        $stmt = $pdo->prepare("INSERT INTO project_files (project_id, file_path, file_type, file_name, file_size) VALUES (?, ?, ?, ?, ?)");
+                        $stmt->execute([$project_id, $destination, $ext === 'pdf' ? 'pdf' : 'other', $name, $file['size']]);
+                    } else {
+                        logDebug("Invalid project file: type={$file['type']}, size={$file['size']}");
                     }
                 }
+            }
+        }
+
+        // Handle .skp file
+        if (isset($_FILES['modelSKPFile']) && $_FILES['modelSKPFile']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['modelSKPFile'];
+            if ($file['type'] === 'application/octet-stream' && pathinfo($file['name'], PATHINFO_EXTENSION) === 'skp' && $file['size'] <= 120 * 1024 * 1024) {
+                $filename = uniqid() . '_model.skp';
+                $destination = $upload_dir . $filename;
+                if (!move_uploaded_file($file['tmp_name'], $destination)) {
+                    throw new Exception("Failed to move .skp file to $destination");
+                }
+                $stmt = $pdo->prepare("UPDATE projects SET model_3d_skp = ? WHERE id = ?");
+                $stmt->execute([$destination, $project_id]);
+            } else {
+                logDebug("Invalid .skp file: type={$file['type']}, size={$file['size']}");
+            }
+        }
+
+        // Handle .zip/.rar file
+        if (isset($_FILES['rdZipFile']) && $_FILES['rdZipFile']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['rdZipFile'];
+            if (in_array($file['type'], ['application/zip', 'application/x-rar-compressed']) && $file['size'] <= 120 * 1024 * 1024) {
+                $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+                $filename = uniqid() . '_rd.' . $ext;
+                $destination = $upload_dir . $filename;
+                if (!move_uploaded_file($file['tmp_name'], $destination)) {
+                    throw new Exception("Failed to move .zip/.rar file to $destination");
+                }
+                $stmt = $pdo->prepare("UPDATE projects SET rd_zip_path = ? WHERE id = ?");
+                $stmt->execute([$destination, $project_id]);
+            } else {
+                logDebug("Invalid .zip/.rar file: type={$file['type']}, size={$file['size']}");
             }
         }
 
@@ -280,25 +338,52 @@ if ($action === 'save') {
     $params[] = $per_page;
     $params[] = $offset;
 
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
-    $projects = $stmt->fetchAll();
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $projects = $stmt->fetchAll();
 
-    $count_query = "SELECT COUNT(*) FROM projects p";
-    if ($_SESSION['is_external'] && $_SESSION['user_role'] === 'external_user') {
-        $count_query .= " WHERE p.id = ANY(?)";
-        $stmt = $pdo->prepare($count_query);
-        $stmt->execute(['{' . implode(',', $project_ids) . '}']);
-    } else {
-        $stmt = $pdo->query($count_query);
+        $count_query = "SELECT COUNT(*) FROM projects p";
+        if ($_SESSION['is_external'] && $_SESSION['user_role'] === 'external_user') {
+            $count_query .= " WHERE p.id = ANY(?)";
+            $stmt = $pdo->prepare($count_query);
+            $stmt->execute(['{' . implode(',', $project_ids) . '}']);
+        } else {
+            $stmt = $pdo->query($count_query);
+        }
+        $total = $stmt->fetchColumn();
+
+        respond(true, 'Projects retrieved successfully', ['projects' => $projects, 'total' => $total, 'page' => $page, 'per_page' => $per_page]);
+    } catch (Exception $e) {
+        logDebug("Error listing projects: " . $e->getMessage());
+        respond(false, 'Error listing projects: ' . $e->getMessage());
     }
-    $total = $stmt->fetchColumn();
+} elseif ($action === 'delete') {
+    restrictAccess(['admin', 'manager']);
+    $id = intval($_GET['id'] ?? 0);
+    if ($id <= 0) {
+        respond(false, 'Invalid project ID');
+    }
 
-    respond(true, 'Projects retrieved successfully', ['projects' => $projects, 'total' => $total, 'page' => $page, 'per_page' => $per_page]);
+    try {
+        $pdo->beginTransaction();
+        $stmt = $pdo->prepare("DELETE FROM projects WHERE id = ?");
+        $stmt->execute([$id]);
+        if ($stmt->rowCount() === 0) {
+            respond(false, 'Project not found');
+        }
+        // Log audit
+        $stmt = $pdo->prepare("INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$_SESSION['user_id'], 'delete_project', 'project', $id, json_encode(['id' => $id])]);
+        $pdo->commit();
+        respond(true, 'Project deleted successfully');
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        logDebug("Error deleting project: " . $e->getMessage());
+        respond(false, 'Error deleting project: ' . $e->getMessage());
+    }
 } else {
     logDebug("Invalid action: $action");
     respond(false, 'Invalid action');
 }
-
-ob_end_clean();
 ?>

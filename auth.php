@@ -1,12 +1,11 @@
 <?php
 session_start();
 
-$host = '77.222.61.245';
+$host = 'pg4.sweb.ru';
 $db   = 'dkaurorads';
 $user = 'dkaurorads';
 $pass = '5djStu6Bh'; // Replace with your PostgreSQL password
-$port = '5432';
-$charset = 'utf8mb4';
+$port = '5433';
 
 $dsn = "pgsql:host=$host;port=$port;dbname=$db";
 $options = [
